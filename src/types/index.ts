@@ -27,6 +27,7 @@ export interface Tag {
   color?: string
 }
 
+// Legacy Event for Status History (Backwards Compatibility)
 export interface IdeaEvent {
   id: string
   ideaId: string
@@ -82,4 +83,54 @@ export const CATEGORY_LABELS: Record<IdeaCategory, string> = {
   solucao_em_andamento: 'Solução em Andamento',
   melhoria: 'Melhoria',
   experimento: 'Experimento',
+}
+
+// Continuity Features Types
+
+export interface IdeaLastState {
+  whereIStopped: string
+  whatIWasDoing: string
+  nextStep: string
+  updatedAt: string
+}
+
+export interface IdeaChecklistItem {
+  id: string
+  label: string
+  done: boolean
+}
+
+export interface IdeaReferenceLink {
+  id: string
+  title: string
+  url: string
+}
+
+export interface IdeaSnapshot {
+  id: string
+  title: string
+  createdAt: string
+  data: {
+    ideaTitle: string
+    ideaSummary: string
+    lastState: IdeaLastState | null
+    checklist: IdeaChecklistItem[]
+    references: IdeaReferenceLink[]
+  }
+}
+
+export type IdeaTimelineEventType =
+  | 'status_changed'
+  | 'last_state_updated'
+  | 'checklist_updated'
+  | 'references_updated'
+  | 'snapshot_created'
+  | 'priority_updated'
+  | 'tags_updated'
+
+export interface IdeaTimelineEvent {
+  id: string
+  type: IdeaTimelineEventType
+  createdAt: string
+  payload?: Record<string, any>
 }

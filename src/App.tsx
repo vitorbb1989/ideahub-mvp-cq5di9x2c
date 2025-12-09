@@ -16,6 +16,8 @@ import Documentation from './pages/Documentation'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import NotFound from './pages/NotFound'
+import Resume from './pages/Resume'
+import IdeaDetail from './pages/IdeaDetail'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { Loader2 } from 'lucide-react'
@@ -73,8 +75,10 @@ const App = () => (
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<Index />} />
+              <Route path="/resume" element={<Resume />} />
               <Route path="/board" element={<Board />} />
               <Route path="/catalog" element={<Catalog />} />
+              <Route path="/ideas/:id" element={<IdeaDetail />} />
               <Route path="/documentation" element={<Documentation />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
