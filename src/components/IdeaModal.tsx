@@ -139,7 +139,7 @@ export function IdeaModal({
         setHistory([])
       }
     }
-  }, [isOpen, existingIdea, form, initialStatus])
+  }, [isOpen, existingIdea, form, initialStatus, getEvents])
 
   const onSubmit = (values: z.infer<typeof ideaSchema>) => {
     const commonData = {

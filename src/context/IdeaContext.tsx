@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useState, useEffect } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from 'react'
 import { Idea, Tag, IdeaEvent } from '@/types'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
@@ -26,7 +32,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       const [fetchedIdeas, fetchedTags] = await Promise.all([
         api.getIdeas(),
@@ -44,80 +50,94 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [toast])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
-  const addIdea = async (
-    newIdea: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
-  ) => {
-    try {
-      const created = await api.createIdea(newIdea)
-      setIdeas((prev) => [created, ...prev])
-      toast({
-        title: 'Ideia criada!',
-        description: 'Sua ideia foi salva com sucesso.',
-      })
-    } catch (error) {
-      console.error(error)
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Falha ao criar ideia.',
-      })
-    }
-  }
-
-  const updateIdea = async (id: string, updates: Partial<Idea>) => {
-    try {
-      // Optimistic update
-      setIdeas((prev) =>
-        prev.map((idea) =>
-          idea.id === id
-            ? { ...idea, ...updates, updatedAt: new Date().toISOString() }
-            : idea,
-        ),
-      )
-
-      const updated = await api.updateIdea(id, updates)
-
-      // Reconcile with server response (important for calculated fields like priorityScore)
-      setIdeas((prev) => prev.map((idea) => (idea.id === id ? updated : idea)))
-    } catch (error) {
-      console.error(error)
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Falha ao atualizar ideia.',
-      })
-      loadData() // Revert on error
-    }
-  }
-
-  const createTag = async (name: string) => {
-    try {
-      const newTag = await api.createTag(name)
-      // Check if tag already exists in state to avoid duplicates
-      if (!tags.some((t) => t.id === newTag.id)) {
-        setTags((prev) => [...prev, newTag])
+  const addIdea = useCallback(
+    async (
+      newIdea: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
+    ) => {
+      try {
+        const created = await api.createIdea(newIdea)
+        setIdeas((prev) => [created, ...prev])
+        toast({
+          title: 'Ideia criada!',
+          description: 'Sua ideia foi salva com sucesso.',
+        })
+      } catch (error) {
+        console.error(error)
+        toast({
+          variant: 'destructive',
+          title: 'Erro',
+          description: 'Falha ao criar ideia.',
+        })
       }
-      return newTag
-    } catch (error) {
-      console.error(error)
-      toast({
-        variant: 'destructive',
-        title: 'Erro',
-        description: 'Falha ao criar tag.',
-      })
-      throw error
-    }
-  }
+    },
+    [toast],
+  )
 
-  const getEvents = async (ideaId: string) => {
+  const updateIdea = useCallback(
+    async (id: string, updates: Partial<Idea>) => {
+      try {
+        // Optimistic update
+        setIdeas((prev) =>
+          prev.map((idea) =>
+            idea.id === id
+              ? { ...idea, ...updates, updatedAt: new Date().toISOString() }
+              : idea,
+          ),
+        )
+
+        const updated = await api.updateIdea(id, updates)
+
+        // Reconcile with server response (important for calculated fields like priorityScore)
+        setIdeas((prev) =>
+          prev.map((idea) => (idea.id === id ? updated : idea)),
+        )
+      } catch (error) {
+        console.error(error)
+        toast({
+          variant: 'destructive',
+          title: 'Erro',
+          description: 'Falha ao atualizar ideia.',
+        })
+        loadData() // Revert on error
+      }
+    },
+    [loadData, toast],
+  )
+
+  const createTag = useCallback(
+    async (name: string) => {
+      try {
+        const newTag = await api.createTag(name)
+        // Check if tag already exists in state to avoid duplicates
+        setTags((prev) => {
+          if (!prev.some((t) => t.id === newTag.id)) {
+            return [...prev, newTag]
+          }
+          return prev
+        })
+        return newTag
+      } catch (error) {
+        console.error(error)
+        toast({
+          variant: 'destructive',
+          title: 'Erro',
+          description: 'Falha ao criar tag.',
+        })
+        throw error
+      }
+    },
+    [toast],
+  )
+
+  const getEvents = useCallback(async (ideaId: string) => {
     return api.getIdeaEvents(ideaId)
-  }
+  }, [])
 
   return (
     <IdeaContext.Provider
