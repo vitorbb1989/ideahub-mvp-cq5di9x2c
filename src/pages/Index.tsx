@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/form'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useToast } from '@/hooks/use-toast'
 import { Badge } from '@/components/ui/badge'
 
 const quickCaptureSchema = z.object({
@@ -29,7 +28,6 @@ const quickCaptureSchema = z.object({
 
 const Index = () => {
   const { ideas, addIdea, isLoading } = useIdeas()
-  const { toast } = useToast()
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
 
@@ -43,20 +41,15 @@ const Index = () => {
     },
   })
 
-  const onSubmit = (values: z.infer<typeof quickCaptureSchema>) => {
-    addIdea({
+  const onSubmit = async (values: z.infer<typeof quickCaptureSchema>) => {
+    await addIdea({
       title: values.title,
-      summary: values.summary,
+      summary: values.summary || '',
       status: 'inbox',
       category: 'nova_solucao',
       impact: 3,
       effort: 3,
       tags: [],
-    })
-    toast({
-      title: 'Ideia capturada!',
-      description: 'Sua ideia foi salva na Inbox.',
-      duration: 3000,
     })
     form.reset()
   }
@@ -169,10 +162,10 @@ const Index = () => {
                   <div className="hidden sm:flex flex-wrap gap-1 justify-end max-w-[200px]">
                     {idea.tags.map((t) => (
                       <span
-                        key={t}
+                        key={t.id}
                         className="bg-secondary px-1.5 rounded text-[10px] text-secondary-foreground"
                       >
-                        {t}
+                        {t.name}
                       </span>
                     ))}
                   </div>

@@ -51,11 +51,11 @@ export function IdeaCard({
         <div className="flex flex-wrap gap-1 mb-3">
           {idea.tags.slice(0, 3).map((tag) => (
             <Badge
-              key={tag}
+              key={tag.id}
               variant="secondary"
               className="px-1.5 py-0 text-[10px] h-5"
             >
-              {tag}
+              {tag.name}
             </Badge>
           ))}
           {idea.tags.length > 3 && (

@@ -32,20 +32,21 @@ import {
   SlidersHorizontal,
 } from 'lucide-react'
 import {
-  Idea,
   IdeaStatus,
   IdeaCategory,
   STATUS_LABELS,
   CATEGORY_LABELS,
 } from '@/types'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 type SortOption = 'relevance' | 'recent' | 'updated'
 
 const Catalog = () => {
-  const { ideas, isLoading } = useIdeas()
+  const { ideas, tags, isLoading } = useIdeas()
   const [search, setSearch] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<IdeaStatus[]>([])
   const [selectedCategory, setSelectedCategory] = useState<IdeaCategory[]>([])
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [sortOption, setSortOption] = useState<SortOption>('recent')
   const [isFilterOpen, setIsFilterOpen] = useState(false)
 
@@ -62,7 +63,7 @@ const Catalog = () => {
           idea.title.toLowerCase().includes(searchLower) ||
           idea.summary?.toLowerCase().includes(searchLower) ||
           idea.description?.toLowerCase().includes(searchLower) ||
-          idea.tags.some((tag) => tag.toLowerCase().includes(searchLower))
+          idea.tags.some((tag) => tag.name.toLowerCase().includes(searchLower))
 
         // Filters
         const matchesStatus =
@@ -71,7 +72,11 @@ const Catalog = () => {
           selectedCategory.length === 0 ||
           selectedCategory.includes(idea.category)
 
-        return matchesSearch && matchesStatus && matchesCategory
+        const matchesTags =
+          selectedTags.length === 0 ||
+          selectedTags.every((tagId) => idea.tags.some((t) => t.id === tagId))
+
+        return matchesSearch && matchesStatus && matchesCategory && matchesTags
       })
       .sort((a, b) => {
         if (sortOption === 'relevance') return b.priorityScore - a.priorityScore
@@ -85,7 +90,14 @@ const Catalog = () => {
           )
         return 0
       })
-  }, [ideas, search, selectedStatus, selectedCategory, sortOption])
+  }, [
+    ideas,
+    search,
+    selectedStatus,
+    selectedCategory,
+    selectedTags,
+    sortOption,
+  ])
 
   const toggleStatus = (status: IdeaStatus) => {
     setSelectedStatus((prev) =>
@@ -103,9 +115,18 @@ const Catalog = () => {
     )
   }
 
+  const toggleTag = (tagId: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId],
+    )
+  }
+
   const clearFilters = () => {
     setSelectedStatus([])
     setSelectedCategory([])
+    setSelectedTags([])
     setSearch('')
     setSortOption('recent')
   }
@@ -154,52 +175,84 @@ const Catalog = () => {
               <Button variant="outline" className="gap-2">
                 <Filter className="w-4 h-4" />
                 Filtros
-                {(selectedStatus.length > 0 || selectedCategory.length > 0) && (
+                {(selectedStatus.length > 0 ||
+                  selectedCategory.length > 0 ||
+                  selectedTags.length > 0) && (
                   <Badge variant="secondary" className="ml-1 px-1 h-5">
-                    {selectedStatus.length + selectedCategory.length}
+                    {selectedStatus.length +
+                      selectedCategory.length +
+                      selectedTags.length}
                   </Badge>
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent>
+            <SheetContent className="flex flex-col">
               <SheetHeader>
                 <SheetTitle>Filtrar Ideias</SheetTitle>
                 <SheetDescription>
-                  Refine sua busca por status e categoria.
+                  Refine sua busca por status, categoria e tags.
                 </SheetDescription>
               </SheetHeader>
 
-              <div className="py-6 space-y-6">
-                <div className="space-y-3">
-                  <h4 className="font-medium">Status</h4>
-                  {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`status-${key}`}
-                        checked={selectedStatus.includes(key as IdeaStatus)}
-                        onCheckedChange={() => toggleStatus(key as IdeaStatus)}
-                      />
-                      <Label htmlFor={`status-${key}`}>{label}</Label>
-                    </div>
-                  ))}
-                </div>
+              <ScrollArea className="flex-1 -mx-6 px-6 py-6">
+                <div className="space-y-6">
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Status</h4>
+                    {Object.entries(STATUS_LABELS).map(([key, label]) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`status-${key}`}
+                          checked={selectedStatus.includes(key as IdeaStatus)}
+                          onCheckedChange={() =>
+                            toggleStatus(key as IdeaStatus)
+                          }
+                        />
+                        <Label htmlFor={`status-${key}`}>{label}</Label>
+                      </div>
+                    ))}
+                  </div>
 
-                <div className="space-y-3">
-                  <h4 className="font-medium">Categoria</h4>
-                  {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`cat-${key}`}
-                        checked={selectedCategory.includes(key as IdeaCategory)}
-                        onCheckedChange={() =>
-                          toggleCategory(key as IdeaCategory)
-                        }
-                      />
-                      <Label htmlFor={`cat-${key}`}>{label}</Label>
+                  <div className="space-y-3">
+                    <h4 className="font-medium">Categoria</h4>
+                    {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+                      <div key={key} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`cat-${key}`}
+                          checked={selectedCategory.includes(
+                            key as IdeaCategory,
+                          )}
+                          onCheckedChange={() =>
+                            toggleCategory(key as IdeaCategory)
+                          }
+                        />
+                        <Label htmlFor={`cat-${key}`}>{label}</Label>
+                      </div>
+                    ))}
+                  </div>
+
+                  {tags.length > 0 && (
+                    <div className="space-y-3">
+                      <h4 className="font-medium">Tags</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {tags.map((tag) => (
+                          <Badge
+                            key={tag.id}
+                            variant={
+                              selectedTags.includes(tag.id)
+                                ? 'default'
+                                : 'outline'
+                            }
+                            className="cursor-pointer"
+                            onClick={() => toggleTag(tag.id)}
+                          >
+                            {tag.name}
+                          </Badge>
+                        ))}
+                      </div>
                     </div>
-                  ))}
+                  )}
                 </div>
-              </div>
+              </ScrollArea>
 
               <SheetFooter>
                 <Button variant="outline" onClick={clearFilters}>
@@ -258,11 +311,11 @@ const Catalog = () => {
                   </Badge>
                   {idea.tags.map((t) => (
                     <Badge
-                      key={t}
+                      key={t.id}
                       variant="secondary"
                       className="text-xs font-normal"
                     >
-                      #{t}
+                      #{t.name}
                     </Badge>
                   ))}
                 </div>

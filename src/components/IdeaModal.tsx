@@ -31,17 +31,32 @@ import { Slider } from '@/components/ui/slider'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { useIdeas } from '@/context/IdeaContext'
 import {
-  Idea,
   IdeaCategory,
   IdeaStatus,
   STATUS_LABELS,
   CATEGORY_LABELS,
+  Tag,
+  IdeaEvent,
 } from '@/types'
-import { X, Calendar } from 'lucide-react'
+import { X, Calendar, Plus, Check, ChevronsUpDown } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
 
 const ideaSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório'),
@@ -51,7 +66,6 @@ const ideaSchema = z.object({
   category: z.string(),
   impact: z.number().min(1).max(5),
   effort: z.number().min(1).max(5),
-  tags: z.string().optional(), // We'll handle tag string to array conversion manually
 })
 
 interface IdeaModalProps {
@@ -67,9 +81,18 @@ export function IdeaModal({
   isOpen,
   onClose,
 }: IdeaModalProps) {
-  const { ideas, addIdea, updateIdea } = useIdeas()
-  const [tagInput, setTagInput] = useState('')
-  const [tags, setTags] = useState<string[]>([])
+  const {
+    ideas,
+    tags: availableTags,
+    addIdea,
+    updateIdea,
+    createTag,
+    getEvents,
+  } = useIdeas()
+  const [selectedTags, setSelectedTags] = useState<Tag[]>([])
+  const [history, setHistory] = useState<IdeaEvent[]>([])
+  const [tagSearch, setTagSearch] = useState('')
+  const [tagOpen, setTagOpen] = useState(false)
 
   const existingIdea = ideaId ? ideas.find((i) => i.id === ideaId) : null
 
@@ -83,11 +106,10 @@ export function IdeaModal({
       category: 'nova_solucao',
       impact: 3,
       effort: 3,
-      tags: '',
     },
   })
 
-  // Reset or fill form when opening
+  // Load Idea Data
   useEffect(() => {
     if (isOpen) {
       if (existingIdea) {
@@ -99,9 +121,10 @@ export function IdeaModal({
           category: existingIdea.category,
           impact: existingIdea.impact,
           effort: existingIdea.effort,
-          tags: '',
         })
-        setTags(existingIdea.tags)
+        setSelectedTags(existingIdea.tags)
+        // Fetch history
+        getEvents(existingIdea.id).then(setHistory)
       } else {
         form.reset({
           title: '',
@@ -111,9 +134,9 @@ export function IdeaModal({
           category: 'nova_solucao',
           impact: 3,
           effort: 3,
-          tags: '',
         })
-        setTags([])
+        setSelectedTags([])
+        setHistory([])
       }
     }
   }, [isOpen, existingIdea, form, initialStatus])
@@ -121,13 +144,13 @@ export function IdeaModal({
   const onSubmit = (values: z.infer<typeof ideaSchema>) => {
     const commonData = {
       title: values.title,
-      summary: values.summary,
-      description: values.description,
+      summary: values.summary || '',
+      description: values.description || '',
       status: values.status as IdeaStatus,
       category: values.category as IdeaCategory,
       impact: values.impact,
       effort: values.effort,
-      tags: tags,
+      tags: selectedTags,
     }
 
     if (existingIdea) {
@@ -138,19 +161,19 @@ export function IdeaModal({
     onClose()
   }
 
-  const handleAddTag = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      const val = tagInput.trim()
-      if (val && !tags.includes(val)) {
-        setTags([...tags, val])
-        setTagInput('')
-      }
-    }
+  const handleCreateTag = async () => {
+    if (!tagSearch.trim()) return
+    const newTag = await createTag(tagSearch)
+    setSelectedTags([...selectedTags, newTag])
+    setTagSearch('')
   }
 
-  const removeTag = (tag: string) => {
-    setTags(tags.filter((t) => t !== tag))
+  const toggleTag = (tag: Tag) => {
+    if (selectedTags.some((t) => t.id === tag.id)) {
+      setSelectedTags(selectedTags.filter((t) => t.id !== tag.id))
+    } else {
+      setSelectedTags([...selectedTags, tag])
+    }
   }
 
   const impactValue = form.watch('impact')
@@ -335,28 +358,75 @@ export function IdeaModal({
                 </div>
 
                 {/* Tags */}
-                <div>
+                <div className="flex flex-col gap-2">
                   <FormLabel>Tags</FormLabel>
-                  <div className="flex flex-wrap gap-2 mb-2 p-2 border rounded-md min-h-[42px] bg-background">
-                    {tags.map((tag) => (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {selectedTags.map((tag) => (
                       <Badge
-                        key={tag}
+                        key={tag.id}
                         variant="secondary"
                         className="cursor-pointer hover:bg-destructive hover:text-destructive-foreground transition-colors"
-                        onClick={() => removeTag(tag)}
+                        onClick={() => toggleTag(tag)}
                       >
-                        {tag} <X className="w-3 h-3 ml-1" />
+                        {tag.name} <X className="w-3 h-3 ml-1" />
                       </Badge>
                     ))}
-                    <input
-                      className="flex-1 bg-transparent border-none outline-none text-sm min-w-[100px]"
-                      placeholder={
-                        tags.length === 0 ? 'Digite e pressione Enter...' : ''
-                      }
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={handleAddTag}
-                    />
+                    <Popover open={tagOpen} onOpenChange={setTagOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          size="sm"
+                          className="h-6 w-6 p-0 rounded-full"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[200px] p-0" align="start">
+                        <Command>
+                          <CommandInput
+                            placeholder="Buscar tag..."
+                            value={tagSearch}
+                            onValueChange={setTagSearch}
+                          />
+                          <CommandList>
+                            <CommandEmpty>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start text-xs"
+                                onClick={handleCreateTag}
+                              >
+                                <Plus className="mr-2 h-3 w-3" />
+                                Criar "{tagSearch}"
+                              </Button>
+                            </CommandEmpty>
+                            <CommandGroup>
+                              {availableTags.map((tag) => (
+                                <CommandItem
+                                  key={tag.id}
+                                  value={tag.name}
+                                  onSelect={() => {
+                                    toggleTag(tag)
+                                    setTagOpen(false)
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      'mr-2 h-4 w-4',
+                                      selectedTags.some((t) => t.id === tag.id)
+                                        ? 'opacity-100'
+                                        : 'opacity-0',
+                                    )}
+                                  />
+                                  {tag.name}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
 
@@ -383,11 +453,16 @@ export function IdeaModal({
                 {existingIdea && (
                   <div className="space-y-4">
                     <Separator />
-                    <h3 className="text-sm font-semibold">Histórico</h3>
-                    <div className="space-y-3">
-                      {existingIdea.history.map((h, i) => (
-                        <div key={i} className="flex items-start gap-3 text-sm">
-                          <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">
+                      Histórico de Atividades
+                    </h3>
+                    <div className="space-y-3 pl-2 border-l-2 border-muted">
+                      {history.map((h, i) => (
+                        <div
+                          key={i}
+                          className="flex items-start gap-3 text-sm relative"
+                        >
+                          <div className="absolute -left-[13px] top-1 w-2 h-2 rounded-full bg-muted-foreground/50" />
                           <div className="grid gap-0.5">
                             <p className="text-muted-foreground text-xs">
                               {format(
@@ -399,33 +474,34 @@ export function IdeaModal({
                               )}
                             </p>
                             <p>
-                              Mudou de{' '}
-                              <span className="font-medium">
-                                {h.previousStatus
-                                  ? STATUS_LABELS[h.previousStatus]
-                                  : 'Criação'}
-                              </span>{' '}
-                              para{' '}
-                              <span className="font-medium text-foreground">
-                                {STATUS_LABELS[h.newStatus]}
-                              </span>
+                              {h.previousStatus ? (
+                                <>
+                                  Mudou de{' '}
+                                  <span className="font-medium">
+                                    {STATUS_LABELS[h.previousStatus]}
+                                  </span>{' '}
+                                  para{' '}
+                                  <span className="font-medium text-foreground">
+                                    {STATUS_LABELS[h.newStatus]}
+                                  </span>
+                                </>
+                              ) : (
+                                <span>
+                                  Ideia criada como{' '}
+                                  <span className="font-medium text-foreground">
+                                    {STATUS_LABELS[h.newStatus]}
+                                  </span>
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>
                       ))}
-                      <div className="flex items-start gap-3 text-sm">
-                        <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground" />
-                        <div className="grid gap-0.5">
-                          <p className="text-muted-foreground text-xs">
-                            {format(
-                              new Date(existingIdea.createdAt),
-                              "dd 'de' MMMM 'às' HH:mm",
-                              { locale: ptBR },
-                            )}
-                          </p>
-                          <p>Ideia criada</p>
-                        </div>
-                      </div>
+                      {history.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Nenhuma atividade registrada.
+                        </p>
+                      )}
                     </div>
                   </div>
                 )}

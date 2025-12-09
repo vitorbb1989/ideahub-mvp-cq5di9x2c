@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
 import { useIdeas } from '@/context/IdeaContext'
 import { IdeaStatus, STATUS_LABELS } from '@/types'
 import { IdeaCard } from '@/components/IdeaCard'
@@ -36,7 +36,6 @@ const Board = () => {
   const handleDragStart = (e: React.DragEvent, id: string) => {
     setDraggedIdeaId(id)
     e.dataTransfer.effectAllowed = 'move'
-    // Hack for transparency on drag image if needed, but default is usually fine
   }
 
   const handleDragOver = (e: React.DragEvent, status: IdeaStatus) => {

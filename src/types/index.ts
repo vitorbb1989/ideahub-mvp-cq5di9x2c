@@ -14,7 +14,15 @@ export type IdeaCategory =
   | 'melhoria'
   | 'experimento'
 
-export interface IdeaHistory {
+export interface Tag {
+  id: string
+  name: string
+  color?: string
+}
+
+export interface IdeaEvent {
+  id: string
+  ideaId: string
   date: string
   previousStatus: IdeaStatus | null
   newStatus: IdeaStatus
@@ -23,17 +31,16 @@ export interface IdeaHistory {
 export interface Idea {
   id: string
   title: string
-  summary?: string
+  summary: string
   description?: string
   status: IdeaStatus
   category: IdeaCategory
   impact: number // 1-5
   effort: number // 1-5
   priorityScore: number // Calculated: impact / effort
-  tags: string[]
+  tags: Tag[]
   createdAt: string
   updatedAt: string
-  history: IdeaHistory[]
 }
 
 export const STATUS_LABELS: Record<IdeaStatus, string> = {
