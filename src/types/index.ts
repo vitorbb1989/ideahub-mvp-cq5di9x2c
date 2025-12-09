@@ -14,6 +14,12 @@ export type IdeaCategory =
   | 'melhoria'
   | 'experimento'
 
+export interface User {
+  id: string
+  name: string
+  email: string
+}
+
 export interface Tag {
   id: string
   name: string
@@ -30,6 +36,7 @@ export interface IdeaEvent {
 
 export interface Idea {
   id: string
+  userId: string
   title: string
   summary: string
   description?: string

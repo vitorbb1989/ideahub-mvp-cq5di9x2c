@@ -8,13 +8,17 @@ import React, {
 import { Idea, Tag, IdeaEvent } from '@/types'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
+import { useAuth } from '@/context/AuthContext'
 
 interface IdeaContextType {
   ideas: Idea[]
   tags: Tag[]
   isLoading: boolean
   addIdea: (
-    idea: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
+    idea: Omit<
+      Idea,
+      'id' | 'createdAt' | 'updatedAt' | 'priorityScore' | 'userId'
+    >,
   ) => Promise<void>
   updateIdea: (id: string, updates: Partial<Idea>) => Promise<void>
   refreshIdeas: () => Promise<void>
@@ -27,15 +31,23 @@ const IdeaContext = createContext<IdeaContextType | undefined>(undefined)
 export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
+  const { user } = useAuth()
   const [ideas, setIdeas] = useState<Idea[]>([])
   const [tags, setTags] = useState<Tag[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const { toast } = useToast()
 
   const loadData = useCallback(async () => {
+    if (!user) {
+      setIdeas([])
+      setTags([])
+      setIsLoading(false)
+      return
+    }
+
     try {
       const [fetchedIdeas, fetchedTags] = await Promise.all([
-        api.getIdeas(),
+        api.getIdeas(user.id),
         api.getTags(),
       ])
       setIdeas(fetchedIdeas)
@@ -50,7 +62,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
     } finally {
       setIsLoading(false)
     }
-  }, [toast])
+  }, [toast, user])
 
   useEffect(() => {
     loadData()
@@ -58,10 +70,18 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const addIdea = useCallback(
     async (
-      newIdea: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
+      newIdea: Omit<
+        Idea,
+        'id' | 'createdAt' | 'updatedAt' | 'priorityScore' | 'userId'
+      >,
     ) => {
+      if (!user) return
+
       try {
-        const created = await api.createIdea(newIdea)
+        const created = await api.createIdea({
+          ...newIdea,
+          userId: user.id,
+        })
         setIdeas((prev) => [created, ...prev])
         toast({
           title: 'Ideia criada!',
@@ -76,7 +96,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
         })
       }
     },
-    [toast],
+    [toast, user],
   )
 
   const updateIdea = useCallback(

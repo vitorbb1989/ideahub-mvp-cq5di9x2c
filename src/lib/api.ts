@@ -1,4 +1,4 @@
-import { Idea, IdeaStatus, IdeaCategory, Tag, IdeaEvent } from '@/types'
+import { Idea, IdeaStatus, Tag, IdeaEvent, User } from '@/types'
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substring(2, 9)
@@ -8,6 +8,8 @@ const STORAGE_KEYS = {
   IDEAS: 'ideahub_ideas',
   TAGS: 'ideahub_tags',
   EVENTS: 'ideahub_events',
+  USERS: 'ideahub_users',
+  SESSION: 'ideahub_session',
 }
 
 // Initial Mock Data
@@ -18,9 +20,13 @@ const INITIAL_TAGS: Tag[] = [
   { id: 't4', name: 'ux' },
 ]
 
+// Demo user ID
+const DEMO_USER_ID = 'demo-user'
+
 const INITIAL_IDEAS: Idea[] = [
   {
     id: '1',
+    userId: DEMO_USER_ID,
     title: 'Integração com WhatsApp',
     summary: 'Permitir que clientes enviem mensagens direto pelo app.',
     description:
@@ -49,9 +55,77 @@ class MockApi {
     localStorage.setItem(key, JSON.stringify(value))
   }
 
-  async getIdeas(query?: string, status?: IdeaStatus, tagId?: string) {
+  // --- Auth Methods ---
+
+  async login(email: string, password: string): Promise<User> {
+    await delay(500)
+    const users = this.getStored<
+      (User & { password: string; createdAt: string })[]
+    >(STORAGE_KEYS.USERS, [])
+    const user = users.find((u) => u.email === email && u.password === password)
+
+    if (!user) {
+      throw new Error('Credenciais inválidas.')
+    }
+
+    const publicUser: User = { id: user.id, name: user.name, email: user.email }
+    this.setStored(STORAGE_KEYS.SESSION, publicUser)
+    return publicUser
+  }
+
+  async register(name: string, email: string, password: string): Promise<User> {
+    await delay(500)
+    const users = this.getStored<
+      (User & { password: string; createdAt: string })[]
+    >(STORAGE_KEYS.USERS, [])
+
+    if (users.some((u) => u.email === email)) {
+      throw new Error('E-mail já cadastrado.')
+    }
+
+    const newUser = {
+      id: generateId(),
+      name,
+      email,
+      password,
+      createdAt: new Date().toISOString(),
+    }
+
+    users.push(newUser)
+    this.setStored(STORAGE_KEYS.USERS, users)
+
+    const publicUser: User = {
+      id: newUser.id,
+      name: newUser.name,
+      email: newUser.email,
+    }
+    this.setStored(STORAGE_KEYS.SESSION, publicUser)
+    return publicUser
+  }
+
+  async logout() {
+    await delay(200)
+    localStorage.removeItem(STORAGE_KEYS.SESSION)
+  }
+
+  async getCurrentUser(): Promise<User | null> {
+    await delay(200)
+    return this.getStored<User | null>(STORAGE_KEYS.SESSION, null)
+  }
+
+  // --- Data Methods ---
+
+  async getIdeas(
+    userId: string,
+    query?: string,
+    status?: IdeaStatus,
+    tagId?: string,
+  ) {
     await delay(500)
     let ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, INITIAL_IDEAS)
+
+    // Filter by User ID
+    ideas = ideas.filter((i) => i.userId === userId)
 
     if (query) {
       const q = query.toLowerCase()
