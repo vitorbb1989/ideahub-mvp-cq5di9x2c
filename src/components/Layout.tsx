@@ -14,6 +14,8 @@ export default function Layout() {
   else if (location.pathname === '/board') title = 'Board de Ideias'
   else if (location.pathname === '/catalog') title = 'Catálogo de Ideias'
   else if (location.pathname === '/profile') title = 'Perfil'
+  else if (location.pathname === '/documentation')
+    title = 'Documentação Técnica'
 
   return (
     <IdeaProvider>
@@ -27,7 +29,7 @@ export default function Layout() {
           <Header title={title} onMenuClick={() => setIsSidebarOpen(true)} />
 
           <main className="flex-1 overflow-auto">
-            <div className="container p-4 mx-auto max-w-7xl md:p-8 animate-fade-in">
+            <div className="container p-4 mx-auto max-w-7xl md:p-8 animate-fade-in h-full">
               <Outlet />
             </div>
           </main>

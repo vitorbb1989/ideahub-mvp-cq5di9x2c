@@ -9,6 +9,7 @@ import {
   LogOut,
   User as UserIcon,
   Settings,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -27,6 +28,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { to: '/', label: 'Inbox', icon: Inbox },
     { to: '/board', label: 'Board', icon: KanbanSquare },
     { to: '/catalog', label: 'Catálogo', icon: Library },
+    { to: '/documentation', label: 'Documentação', icon: FileText },
     { to: '/profile', label: 'Perfil', icon: Settings },
   ]
 

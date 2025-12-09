@@ -12,6 +12,7 @@ import Index from './pages/Index'
 import Board from './pages/Board'
 import Catalog from './pages/Catalog'
 import Profile from './pages/Profile'
+import Documentation from './pages/Documentation'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import NotFound from './pages/NotFound'
@@ -74,6 +75,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/board" element={<Board />} />
               <Route path="/catalog" element={<Catalog />} />
+              <Route path="/documentation" element={<Documentation />} />
               <Route path="/profile" element={<Profile />} />
             </Route>
           </Route>
