@@ -1,4 +1,12 @@
-import { Idea, IdeaStatus, Tag, IdeaEvent, User } from '@/types'
+import {
+  Idea,
+  IdeaStatus,
+  Tag,
+  IdeaEvent,
+  User,
+  UserActivity,
+  UserActivityType,
+} from '@/types'
 
 // Helper to generate IDs
 const generateId = () => Math.random().toString(36).substring(2, 9)
@@ -10,6 +18,7 @@ const STORAGE_KEYS = {
   EVENTS: 'ideahub_events',
   USERS: 'ideahub_users',
   SESSION: 'ideahub_session',
+  ACTIVITIES: 'ideahub_activities',
 }
 
 // Initial Mock Data
@@ -120,8 +129,10 @@ class MockApi {
       throw new Error('Usuário não encontrado.')
     }
 
+    const currentUser = users[index]
+
     // Check email uniqueness if changing
-    if (data.email && data.email !== users[index].email) {
+    if (data.email && data.email !== currentUser.email) {
       const emailExists = users.some(
         (u) => u.email === data.email && u.id !== userId,
       )
@@ -130,7 +141,32 @@ class MockApi {
       }
     }
 
-    const updatedUser = { ...users[index], ...data }
+    // Log Activities
+    if (data.name && data.name !== currentUser.name) {
+      this.logUserActivity(
+        userId,
+        'NAME_UPDATE',
+        `Anterior: ${currentUser.name}, Novo: ${data.name}`,
+      )
+    }
+
+    if (data.email && data.email !== currentUser.email) {
+      this.logUserActivity(
+        userId,
+        'EMAIL_UPDATE',
+        `Anterior: ${currentUser.email}, Novo: ${data.email}`,
+      )
+    }
+
+    if (data.avatar !== undefined && data.avatar !== currentUser.avatar) {
+      if (data.avatar === null) {
+        this.logUserActivity(userId, 'AVATAR_REMOVE')
+      } else {
+        this.logUserActivity(userId, 'AVATAR_UPLOAD')
+      }
+    }
+
+    const updatedUser = { ...currentUser, ...data }
     users[index] = updatedUser
     this.setStored(STORAGE_KEYS.USERS, users)
 
@@ -165,6 +201,41 @@ class MockApi {
 
     users[index].password = newPass
     this.setStored(STORAGE_KEYS.USERS, users)
+
+    this.logUserActivity(userId, 'PASSWORD_CHANGE')
+  }
+
+  // --- User Activity Methods ---
+
+  async getUserActivities(userId: string): Promise<UserActivity[]> {
+    await delay(300)
+    const activities = this.getStored<UserActivity[]>(
+      STORAGE_KEYS.ACTIVITIES,
+      [],
+    )
+    return activities
+      .filter((a) => a.userId === userId)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+  }
+
+  private logUserActivity(
+    userId: string,
+    type: UserActivityType,
+    details?: string,
+  ) {
+    const activities = this.getStored<UserActivity[]>(
+      STORAGE_KEYS.ACTIVITIES,
+      [],
+    )
+    const newActivity: UserActivity = {
+      id: generateId(),
+      userId,
+      type,
+      details,
+      date: new Date().toISOString(),
+    }
+    activities.push(newActivity)
+    this.setStored(STORAGE_KEYS.ACTIVITIES, activities)
   }
 
   // --- Data Methods ---

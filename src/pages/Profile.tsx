@@ -24,6 +24,7 @@ import {
 import { Loader2, User, Lock } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { AvatarUpload } from '@/components/AvatarUpload'
+import { ActivityHistory } from '@/components/ActivityHistory'
 
 // Schema for Profile Info
 const profileSchema = z.object({
@@ -49,6 +50,7 @@ export default function Profile() {
   const { user, updateProfile, changePassword } = useAuth()
   const [isProfileLoading, setIsProfileLoading] = useState(false)
   const [isPasswordLoading, setIsPasswordLoading] = useState(false)
+  const [activityRefreshKey, setActivityRefreshKey] = useState(0)
 
   // Profile Form
   const profileForm = useForm<z.infer<typeof profileSchema>>({
@@ -69,10 +71,15 @@ export default function Profile() {
     },
   })
 
+  const refreshActivity = () => {
+    setActivityRefreshKey((prev) => prev + 1)
+  }
+
   const onProfileSubmit = async (values: z.infer<typeof profileSchema>) => {
     setIsProfileLoading(true)
     try {
       await updateProfile(values)
+      refreshActivity()
       // No need to reset form values as they are now the current values
     } catch (error) {
       // Error handled in context
@@ -86,6 +93,7 @@ export default function Profile() {
     try {
       await changePassword(values.currentPassword, values.newPassword)
       passwordForm.reset()
+      refreshActivity()
     } catch (error) {
       // Error handled in context
     } finally {
@@ -95,6 +103,7 @@ export default function Profile() {
 
   const handleAvatarUpdate = async (avatar: string | null) => {
     await updateProfile({ avatar })
+    refreshActivity()
   }
 
   if (!user) return null
@@ -250,6 +259,9 @@ export default function Profile() {
           </form>
         </Form>
       </Card>
+
+      {/* Activity History Card */}
+      <ActivityHistory userId={user.id} refreshTrigger={activityRefreshKey} />
     </div>
   )
 }

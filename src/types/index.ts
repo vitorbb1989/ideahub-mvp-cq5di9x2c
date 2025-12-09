@@ -35,6 +35,21 @@ export interface IdeaEvent {
   newStatus: IdeaStatus
 }
 
+export type UserActivityType =
+  | 'EMAIL_UPDATE'
+  | 'PASSWORD_CHANGE'
+  | 'AVATAR_UPLOAD'
+  | 'AVATAR_REMOVE'
+  | 'NAME_UPDATE'
+
+export interface UserActivity {
+  id: string
+  userId: string
+  type: UserActivityType
+  details?: string
+  date: string
+}
+
 export interface Idea {
   id: string
   userId: string
