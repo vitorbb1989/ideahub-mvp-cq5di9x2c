@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/form'
 import { Loader2, User, Lock } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
+import { AvatarUpload } from '@/components/AvatarUpload'
 
 // Schema for Profile Info
 const profileSchema = z.object({
@@ -92,8 +93,14 @@ export default function Profile() {
     }
   }
 
+  const handleAvatarUpdate = async (avatar: string | null) => {
+    await updateProfile({ avatar })
+  }
+
+  if (!user) return null
+
   return (
-    <div className="space-y-6 max-w-2xl mx-auto">
+    <div className="space-y-6 max-w-2xl mx-auto pb-10">
       <div className="space-y-0.5">
         <h2 className="text-2xl font-bold tracking-tight">
           Configurações de Perfil
@@ -104,6 +111,9 @@ export default function Profile() {
       </div>
 
       <Separator className="my-6" />
+
+      {/* Avatar Management */}
+      <AvatarUpload user={user} onUpdate={handleAvatarUpdate} />
 
       {/* Profile Information Card */}
       <Card>

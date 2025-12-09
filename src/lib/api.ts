@@ -52,7 +52,12 @@ class MockApi {
   }
 
   private setStored<T>(key: string, value: T) {
-    localStorage.setItem(key, JSON.stringify(value))
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch (e) {
+      console.error('LocalStorage error:', e)
+      throw new Error('Falha ao salvar dados. Armazenamento cheio?')
+    }
   }
 
   // --- Auth Methods ---
@@ -68,7 +73,12 @@ class MockApi {
       throw new Error('Credenciais inválidas.')
     }
 
-    const publicUser: User = { id: user.id, name: user.name, email: user.email }
+    const publicUser: User = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+    }
     this.setStored(STORAGE_KEYS.SESSION, publicUser)
     return publicUser
   }
@@ -115,7 +125,7 @@ class MockApi {
 
   async updateProfile(
     userId: string,
-    data: { name?: string; email?: string },
+    data: { name?: string; email?: string; avatar?: string | null },
   ): Promise<User> {
     await delay(500)
     const users = this.getStored<
@@ -145,6 +155,7 @@ class MockApi {
       id: updatedUser.id,
       name: updatedUser.name,
       email: updatedUser.email,
+      avatar: updatedUser.avatar,
     }
     this.setStored(STORAGE_KEYS.SESSION, publicUser)
     return publicUser

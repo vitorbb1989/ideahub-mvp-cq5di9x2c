@@ -9,7 +9,11 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>
   register: (name: string, email: string, pass: string) => Promise<void>
   logout: () => Promise<void>
-  updateProfile: (data: { name?: string; email?: string }) => Promise<void>
+  updateProfile: (data: {
+    name?: string
+    email?: string
+    avatar?: string | null
+  }) => Promise<void>
   changePassword: (currentPass: string, newPass: string) => Promise<void>
 }
 
@@ -95,16 +99,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }
 
-  const updateProfile = async (data: { name?: string; email?: string }) => {
+  const updateProfile = async (data: {
+    name?: string
+    email?: string
+    avatar?: string | null
+  }) => {
     if (!user) return
 
     try {
       const updatedUser = await api.updateProfile(user.id, data)
       setUser(updatedUser)
-      toast({
-        title: 'Perfil atualizado',
-        description: 'Suas informações foram salvas com sucesso.',
-      })
+      // Only show toast for name/email updates, AvatarUpload handles its own feedback
+      if (data.name || data.email) {
+        toast({
+          title: 'Perfil atualizado',
+          description: 'Suas informações foram salvas com sucesso.',
+        })
+      }
     } catch (error) {
       console.error(error)
       toast({
