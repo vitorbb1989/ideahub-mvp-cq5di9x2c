@@ -113,6 +113,66 @@ class MockApi {
     return this.getStored<User | null>(STORAGE_KEYS.SESSION, null)
   }
 
+  async updateProfile(
+    userId: string,
+    data: { name?: string; email?: string },
+  ): Promise<User> {
+    await delay(500)
+    const users = this.getStored<
+      (User & { password: string; createdAt: string })[]
+    >(STORAGE_KEYS.USERS, [])
+    const index = users.findIndex((u) => u.id === userId)
+
+    if (index === -1) {
+      throw new Error('Usuário não encontrado.')
+    }
+
+    // Check email uniqueness if changing
+    if (data.email && data.email !== users[index].email) {
+      const emailExists = users.some(
+        (u) => u.email === data.email && u.id !== userId,
+      )
+      if (emailExists) {
+        throw new Error('Este e-mail já está em uso por outro usuário.')
+      }
+    }
+
+    const updatedUser = { ...users[index], ...data }
+    users[index] = updatedUser
+    this.setStored(STORAGE_KEYS.USERS, users)
+
+    const publicUser: User = {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+    }
+    this.setStored(STORAGE_KEYS.SESSION, publicUser)
+    return publicUser
+  }
+
+  async changePassword(
+    userId: string,
+    currentPass: string,
+    newPass: string,
+  ): Promise<void> {
+    await delay(500)
+    const users = this.getStored<
+      (User & { password: string; createdAt: string })[]
+    >(STORAGE_KEYS.USERS, [])
+    const index = users.findIndex((u) => u.id === userId)
+
+    if (index === -1) {
+      throw new Error('Usuário não encontrado.')
+    }
+
+    if (users[index].password !== currentPass) {
+      throw new Error('A senha atual está incorreta.')
+    }
+
+    users[index].password = newPass
+    this.setStored(STORAGE_KEYS.USERS, users)
+  }
+
   // --- Data Methods ---
 
   async getIdeas(

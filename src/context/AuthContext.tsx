@@ -9,6 +9,8 @@ interface AuthContextType {
   login: (email: string, pass: string) => Promise<void>
   register: (name: string, email: string, pass: string) => Promise<void>
   logout: () => Promise<void>
+  updateProfile: (data: { name?: string; email?: string }) => Promise<void>
+  changePassword: (currentPass: string, newPass: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -93,8 +95,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }
 
+  const updateProfile = async (data: { name?: string; email?: string }) => {
+    if (!user) return
+
+    try {
+      const updatedUser = await api.updateProfile(user.id, data)
+      setUser(updatedUser)
+      toast({
+        title: 'Perfil atualizado',
+        description: 'Suas informações foram salvas com sucesso.',
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao atualizar perfil',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao atualizar informações.',
+      })
+      throw error
+    }
+  }
+
+  const changePassword = async (currentPass: string, newPass: string) => {
+    if (!user) return
+
+    try {
+      await api.changePassword(user.id, currentPass, newPass)
+      toast({
+        title: 'Senha alterada',
+        description: 'Sua senha foi atualizada com sucesso.',
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao alterar senha',
+        description:
+          error instanceof Error ? error.message : 'Falha ao alterar senha.',
+      })
+      throw error
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        register,
+        logout,
+        updateProfile,
+        changePassword,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

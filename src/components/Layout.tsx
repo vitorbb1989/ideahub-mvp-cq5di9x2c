@@ -13,6 +13,7 @@ export default function Layout() {
   if (location.pathname === '/') title = 'Inbox'
   else if (location.pathname === '/board') title = 'Board de Ideias'
   else if (location.pathname === '/catalog') title = 'Catálogo de Ideias'
+  else if (location.pathname === '/profile') title = 'Perfil'
 
   return (
     <IdeaProvider>

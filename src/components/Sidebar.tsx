@@ -8,6 +8,7 @@ import {
   X,
   LogOut,
   User as UserIcon,
+  Settings,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -26,6 +27,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { to: '/', label: 'Inbox', icon: Inbox },
     { to: '/board', label: 'Board', icon: KanbanSquare },
     { to: '/catalog', label: 'Catálogo', icon: Library },
+    { to: '/profile', label: 'Perfil', icon: Settings },
   ]
 
   const handleLogout = async () => {
