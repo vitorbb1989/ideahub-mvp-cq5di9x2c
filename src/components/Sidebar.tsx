@@ -12,7 +12,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 
 interface SidebarProps {
   isOpen: boolean
@@ -104,6 +104,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-4 border-t border-sidebar-border shrink-0">
           <div className="flex items-center gap-3 px-2 py-3 mb-2 rounded-md bg-muted/50">
             <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.avatar || undefined} alt={user?.name} />
               <AvatarFallback className="text-xs">
                 {user?.name ? getInitials(user.name) : <UserIcon />}
               </AvatarFallback>

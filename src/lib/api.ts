@@ -20,42 +20,25 @@ const INITIAL_TAGS: Tag[] = [
   { id: 't4', name: 'ux' },
 ]
 
-// Demo user ID
-const DEMO_USER_ID = 'demo-user'
-
-const INITIAL_IDEAS: Idea[] = [
-  {
-    id: '1',
-    userId: DEMO_USER_ID,
-    title: 'Integração com WhatsApp',
-    summary: 'Permitir que clientes enviem mensagens direto pelo app.',
-    description:
-      'Implementar a API do WhatsApp Business para facilitar o contato.',
-    status: 'mvp',
-    category: 'nova_solucao',
-    impact: 5,
-    effort: 2,
-    priorityScore: 2.5,
-    tags: [INITIAL_TAGS[2]], // mobile
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-]
-
 // Simulate API Latency
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 class MockApi {
   private getStored<T>(key: string, initial: T): T {
-    const stored = localStorage.getItem(key)
-    return stored ? JSON.parse(stored) : initial
+    try {
+      const stored = localStorage.getItem(key)
+      return stored ? JSON.parse(stored) : initial
+    } catch (e) {
+      console.error('LocalStorage read error:', e)
+      return initial
+    }
   }
 
   private setStored<T>(key: string, value: T) {
     try {
       localStorage.setItem(key, JSON.stringify(value))
     } catch (e) {
-      console.error('LocalStorage error:', e)
+      console.error('LocalStorage write error:', e)
       throw new Error('Falha ao salvar dados. Armazenamento cheio?')
     }
   }
@@ -193,7 +176,7 @@ class MockApi {
     tagId?: string,
   ) {
     await delay(500)
-    let ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, INITIAL_IDEAS)
+    let ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
 
     // Filter by User ID
     ideas = ideas.filter((i) => i.userId === userId)
@@ -220,7 +203,7 @@ class MockApi {
 
   async getIdea(id: string) {
     await delay(200)
-    const ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, INITIAL_IDEAS)
+    const ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     return ideas.find((i) => i.id === id) || null
   }
 
@@ -228,7 +211,7 @@ class MockApi {
     data: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
   ) {
     await delay(500)
-    const ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, INITIAL_IDEAS)
+    const ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     const newIdea: Idea = {
       ...data,
       id: generateId(),
@@ -248,7 +231,7 @@ class MockApi {
 
   async updateIdea(id: string, updates: Partial<Idea>) {
     await delay(500)
-    const ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, INITIAL_IDEAS)
+    const ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     const index = ideas.findIndex((i) => i.id === id)
 
     if (index === -1) throw new Error('Idea not found')
