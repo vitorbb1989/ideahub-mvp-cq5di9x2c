@@ -1,7 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import { FolderTree } from '@/components/docs/FolderTree'
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor'
 import { ImportModal } from '@/components/docs/ImportModal'
+import { DocsFileList } from '@/components/docs/DocsFileList'
+import { getSnippet } from '@/components/docs/docsUtils'
 import { useDocs } from '@/context/DocsContext'
 import { Button } from '@/components/ui/button'
 import {
@@ -9,19 +11,12 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
-import {
-  FileText,
-  Plus,
-  Upload,
-  Trash2,
-  Edit2,
-  Loader2,
-  File,
-} from 'lucide-react'
+import { FileText, Upload, Trash2, Loader2, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { cn } from '@/lib/utils'
 
 export default function Docs() {
   const { folders, files, createFile, updateFile, deleteFile, isLoading } =
@@ -29,6 +24,9 @@ export default function Docs() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
   const [isEditingFile, setIsEditingFile] = useState(false)
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Create File State
   const [newFileName, setNewFileName] = useState('')
@@ -42,8 +40,21 @@ export default function Docs() {
   const dragCounter = useRef(0)
 
   const selectedFile = files.find((f) => f.id === selectedFileId)
-  const folderFiles = files.filter((f) => f.folderId === selectedFolderId)
   const currentFolder = folders.find((f) => f.id === selectedFolderId)
+
+  // Search Logic
+  const searchResults = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return files.filter(
+      (f) =>
+        f.name.toLowerCase().includes(q) || f.content.toLowerCase().includes(q),
+    )
+  }, [files, searchQuery])
+
+  const displayedFiles = searchQuery.trim()
+    ? searchResults
+    : files.filter((f) => f.folderId === selectedFolderId)
 
   // Drag Handlers
   const handleDragEnter = (e: React.DragEvent) => {
@@ -138,28 +149,88 @@ export default function Docs() {
         direction="horizontal"
         className="flex-1 rounded-lg border m-4 bg-background shadow-sm overflow-hidden"
       >
-        {/* Left Panel: Navigation */}
+        {/* Left Panel: Navigation & Search */}
         <ResizablePanel
           defaultSize={25}
           minSize={20}
           maxSize={40}
           className="flex flex-col bg-muted/10"
         >
-          <div className="p-4 border-b flex items-center justify-between bg-muted/30">
-            <span className="font-semibold text-sm">Estrutura</span>
-            <span className="text-xs text-muted-foreground">
-              {currentFolder ? currentFolder.name : 'Raiz'}
-            </span>
+          {/* Search Input */}
+          <div className="p-2 border-b space-y-2 bg-background/50">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar documentos..."
+                className="pl-8 h-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
           </div>
-          <ScrollArea className="flex-1 p-2">
-            <FolderTree
-              currentFolderId={selectedFolderId}
-              onSelectFolder={(id) => {
-                setSelectedFolderId(id)
-                setSelectedFileId(null)
-              }}
-            />
-          </ScrollArea>
+
+          {searchQuery.trim() ? (
+            // Search Results List (Sidebar)
+            <div className="flex flex-col h-full bg-muted/10">
+              <div className="p-2 pb-0 text-xs font-semibold text-muted-foreground mb-2 px-4 pt-2">
+                {searchResults.length} encontrados
+              </div>
+              <ScrollArea className="flex-1">
+                <div className="px-2 pb-2 space-y-1">
+                  {searchResults.map((file) => (
+                    <div
+                      key={file.id}
+                      onClick={() => setSelectedFileId(file.id)}
+                      className={cn(
+                        'flex items-center gap-2 p-2 rounded-md cursor-pointer hover:bg-accent text-sm group',
+                        selectedFileId === file.id && 'bg-accent',
+                      )}
+                    >
+                      <FileText className="h-4 w-4 text-primary shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="truncate font-medium">{file.name}</div>
+                        <div className="truncate text-xs text-muted-foreground opacity-70">
+                          {getSnippet(file.content, searchQuery)}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {searchResults.length === 0 && (
+                    <div className="text-sm text-muted-foreground p-4 text-center">
+                      Nenhum documento encontrado.
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          ) : (
+            // Normal Folder Tree
+            <>
+              <div className="p-4 border-b flex items-center justify-between bg-muted/30">
+                <span className="font-semibold text-sm">Estrutura</span>
+                <span className="text-xs text-muted-foreground">
+                  {currentFolder ? currentFolder.name : 'Raiz'}
+                </span>
+              </div>
+              <ScrollArea className="flex-1 p-2">
+                <FolderTree
+                  currentFolderId={selectedFolderId}
+                  onSelectFolder={(id) => {
+                    setSelectedFolderId(id)
+                    setSelectedFileId(null)
+                  }}
+                />
+              </ScrollArea>
+            </>
+          )}
         </ResizablePanel>
 
         <ResizableHandle withHandle />
@@ -226,88 +297,19 @@ export default function Docs() {
               </div>
             </div>
           ) : (
-            // File List View
-            <div className="flex flex-col h-full bg-muted/5">
-              <div className="p-6 pb-2">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <h2 className="text-2xl font-bold tracking-tight">
-                      {currentFolder ? currentFolder.name : 'Documentos'}
-                    </h2>
-                    <p className="text-muted-foreground">
-                      {folderFiles.length} documentos nesta pasta
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {isCreatingFile ? (
-                      <div className="flex gap-2 animate-in slide-in-from-right-4">
-                        <Input
-                          placeholder="Nome do arquivo..."
-                          className="w-48"
-                          value={newFileName}
-                          onChange={(e) => setNewFileName(e.target.value)}
-                          onKeyDown={(e) =>
-                            e.key === 'Enter' && handleCreateFile()
-                          }
-                          autoFocus
-                        />
-                        <Button onClick={handleCreateFile}>Criar</Button>
-                        <Button
-                          variant="ghost"
-                          onClick={() => setIsCreatingFile(false)}
-                        >
-                          Cancelar
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button onClick={() => setIsCreatingFile(true)}>
-                        <Plus className="w-4 h-4 mr-2" /> Novo Documento
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <ScrollArea className="flex-1 px-6 pb-6">
-                {folderFiles.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-muted-foreground border-2 border-dashed rounded-xl bg-muted/20">
-                    <File className="w-12 h-12 mb-4 opacity-20" />
-                    <p className="font-medium">Pasta vazia</p>
-                    <p className="text-sm">
-                      Crie um novo documento ou arraste arquivos para importar.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {folderFiles.map((file) => (
-                      <div
-                        key={file.id}
-                        onClick={() => setSelectedFileId(file.id)}
-                        className="group flex flex-col justify-between p-4 rounded-lg border bg-card shadow-sm hover:shadow-md hover:border-primary/50 cursor-pointer transition-all"
-                      >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="p-2 bg-primary/10 rounded-md">
-                            <FileText className="w-6 h-6 text-primary" />
-                          </div>
-                        </div>
-                        <div>
-                          <h3 className="font-semibold truncate mb-1 group-hover:text-primary transition-colors">
-                            {file.name}
-                          </h3>
-                          <p className="text-xs text-muted-foreground">
-                            Atualizado{' '}
-                            {formatDistanceToNow(new Date(file.updatedAt), {
-                              addSuffix: true,
-                              locale: ptBR,
-                            })}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
+            // File List View (Uses extracted component)
+            <DocsFileList
+              files={displayedFiles}
+              currentFolder={currentFolder}
+              searchQuery={searchQuery}
+              onSelectFile={setSelectedFileId}
+              isCreating={isCreatingFile}
+              onStartCreate={() => setIsCreatingFile(true)}
+              onCancelCreate={() => setIsCreatingFile(false)}
+              onCreate={handleCreateFile}
+              newFileName={newFileName}
+              setNewFileName={setNewFileName}
+            />
           )}
         </ResizablePanel>
       </ResizablePanelGroup>
