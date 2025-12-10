@@ -97,6 +97,15 @@ export interface IdeaReferenceLink {
   url: string
 }
 
+export interface IdeaAttachment {
+  id: string
+  name: string
+  type: string
+  size: number
+  url: string
+  createdAt: string
+}
+
 export interface IdeaSnapshot {
   id: string
   title: string
@@ -107,6 +116,7 @@ export interface IdeaSnapshot {
     lastState: IdeaLastState | null
     checklist: IdeaChecklistItem[]
     references: IdeaReferenceLink[]
+    attachments: IdeaAttachment[]
   }
 }
 
@@ -115,6 +125,7 @@ export type IdeaTimelineEventType =
   | 'last_state_updated'
   | 'checklist_updated'
   | 'references_updated'
+  | 'attachments_updated'
   | 'snapshot_created'
   | 'priority_updated'
   | 'tags_updated'

@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   LAST_STATES: 'ideahub_last_states',
   CHECKLISTS: 'ideahub_checklists',
   REFERENCES: 'ideahub_references',
+  ATTACHMENTS: 'ideahub_attachments',
   SNAPSHOTS: 'ideahub_snapshots',
 }
 

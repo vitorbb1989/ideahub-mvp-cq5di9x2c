@@ -10,6 +10,7 @@ import { IdeaChecklist } from '@/components/continuity/IdeaChecklist'
 import { IdeaLinkedDocs } from '@/components/continuity/IdeaLinkedDocs'
 import { IdeaTimeline } from '@/components/continuity/IdeaTimeline'
 import { IdeaSnapshots } from '@/components/continuity/IdeaSnapshots'
+import { IdeaAttachments } from '@/components/continuity/IdeaAttachments'
 import { ArrowLeft, Save, Camera, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useToast } from '@/hooks/use-toast'
@@ -37,12 +38,15 @@ export default function IdeaDetail() {
     lastState,
     checklist,
     references,
+    attachments,
     snapshots,
     events,
     isLoading: isContinuityLoading,
     addChecklistItem,
     toggleChecklistItem,
     removeChecklistItem,
+    addAttachment,
+    removeAttachment,
     createSnapshot,
     updateSnapshot,
     saveStateAndReferences,
@@ -98,6 +102,7 @@ export default function IdeaDetail() {
         lastState: pendingLastState,
         checklist: checklist,
         references: pendingReferences,
+        attachments: attachments,
       },
     }
 
@@ -208,10 +213,17 @@ export default function IdeaDetail() {
               />
             </div>
 
-            <IdeaLinkedDocs
-              initialLinks={pendingReferences}
-              onChange={setPendingReferences}
-            />
+            <div className="space-y-6">
+              <IdeaLinkedDocs
+                initialLinks={pendingReferences}
+                onChange={setPendingReferences}
+              />
+              <IdeaAttachments
+                attachments={attachments}
+                onAdd={addAttachment}
+                onRemove={removeAttachment}
+              />
+            </div>
           </div>
         </div>
 

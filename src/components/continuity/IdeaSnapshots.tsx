@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { IdeaSnapshot } from '@/types'
-import { Camera, Edit2, Check, X } from 'lucide-react'
+import { Camera, Edit2, Check, X, Paperclip } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Badge } from '@/components/ui/badge'
+import { cn } from '@/lib/utils'
 
 interface IdeaSnapshotsProps {
   snapshots: IdeaSnapshot[]
@@ -194,6 +194,22 @@ export function IdeaSnapshots({ snapshots, onUpdate }: IdeaSnapshotsProps) {
                                 ))}
                               </div>
                             </div>
+
+                            {/* Attachments Section in Snapshot */}
+                            {snapshot.data.attachments &&
+                              snapshot.data.attachments.length > 0 && (
+                                <div>
+                                  <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                    <Paperclip className="w-4 h-4" />
+                                    Anexos ({snapshot.data.attachments.length})
+                                  </h4>
+                                  <ul className="text-sm list-disc pl-5 text-muted-foreground">
+                                    {snapshot.data.attachments.map((att) => (
+                                      <li key={att.id}>{att.name}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                           </div>
                         </DialogContent>
                       </Dialog>

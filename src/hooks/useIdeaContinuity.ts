@@ -5,6 +5,7 @@ import {
   IdeaReferenceLink,
   IdeaSnapshot,
   IdeaTimelineEvent,
+  IdeaAttachment,
 } from '@/types'
 import { ideaService } from '@/services/ideaService'
 import { useToast } from '@/hooks/use-toast'
@@ -13,6 +14,7 @@ export function useIdeaContinuity(ideaId: string | undefined) {
   const [lastState, setLastState] = useState<IdeaLastState | null>(null)
   const [checklist, setChecklist] = useState<IdeaChecklistItem[]>([])
   const [references, setReferences] = useState<IdeaReferenceLink[]>([])
+  const [attachments, setAttachments] = useState<IdeaAttachment[]>([])
   const [snapshots, setSnapshots] = useState<IdeaSnapshot[]>([])
   const [events, setEvents] = useState<IdeaTimelineEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -21,18 +23,20 @@ export function useIdeaContinuity(ideaId: string | undefined) {
   const refreshData = useCallback(async () => {
     if (!ideaId) return
     try {
-      const [cl, sn, ev, rs, rf] = await Promise.all([
+      const [cl, sn, ev, rs, rf, at] = await Promise.all([
         ideaService.getChecklist(ideaId),
         ideaService.getSnapshots(ideaId),
         ideaService.getTimelineEvents(ideaId),
         ideaService.getLastState(ideaId),
         ideaService.getReferences(ideaId),
+        ideaService.getAttachments(ideaId),
       ])
       setChecklist(cl)
       setSnapshots(sn)
       setEvents(ev)
       setLastState(rs)
       setReferences(rf)
+      setAttachments(at)
     } catch (error) {
       console.error('Failed to refresh data', error)
     }
@@ -86,6 +90,40 @@ export function useIdeaContinuity(ideaId: string | undefined) {
     await refreshData()
   }
 
+  // Attachments
+  const addAttachment = async (file: File) => {
+    if (!ideaId) return
+    try {
+      await ideaService.addAttachment(ideaId, file)
+      await refreshData()
+      toast({
+        title: 'Arquivo anexado!',
+        description: `O arquivo ${file.name} foi salvo com sucesso.`,
+      })
+    } catch (error) {
+      console.error(error)
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao anexar',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Falha ao processar o arquivo.',
+      })
+      throw error // Re-throw to handle loading states in UI
+    }
+  }
+
+  const removeAttachment = async (attachmentId: string) => {
+    if (!ideaId) return
+    await ideaService.removeAttachment(ideaId, attachmentId)
+    await refreshData()
+    toast({
+      title: 'Arquivo removido',
+      description: 'O anexo foi excluído com sucesso.',
+    })
+  }
+
   // Snapshots
   const createSnapshot = async (snapshot: IdeaSnapshot) => {
     if (!ideaId) return
@@ -130,12 +168,15 @@ export function useIdeaContinuity(ideaId: string | undefined) {
     lastState,
     checklist,
     references,
+    attachments,
     snapshots,
     events,
     isLoading,
     addChecklistItem,
     toggleChecklistItem,
     removeChecklistItem,
+    addAttachment,
+    removeAttachment,
     createSnapshot,
     updateSnapshot,
     saveStateAndReferences,

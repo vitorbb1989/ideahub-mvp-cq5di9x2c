@@ -7,6 +7,7 @@ import {
   IdeaLastState,
   IdeaChecklistItem,
   IdeaReferenceLink,
+  IdeaAttachment,
   IdeaSnapshot,
 } from '@/types'
 import {
@@ -377,6 +378,68 @@ class IdeaService {
     }
 
     setStoredItem(STORAGE_KEYS.REFERENCES, ideaId, newLinks)
+  }
+
+  // --- Attachments Operations ---
+
+  async getAttachments(ideaId: string): Promise<IdeaAttachment[]> {
+    return (
+      getStoredItem<IdeaAttachment[]>(STORAGE_KEYS.ATTACHMENTS, ideaId) || []
+    )
+  }
+
+  async addAttachment(ideaId: string, file: File): Promise<IdeaAttachment> {
+    // 1MB Limit for LocalStorage safety
+    if (file.size > 1024 * 1024) {
+      throw new Error(
+        'O arquivo excede o limite de 1MB. Por favor, utilize arquivos menores.',
+      )
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = async () => {
+        try {
+          const attachments = (await this.getAttachments(ideaId)) || []
+          const newAttachment: IdeaAttachment = {
+            id: generateId(),
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            url: reader.result as string,
+            createdAt: new Date().toISOString(),
+          }
+
+          const updatedAttachments = [...attachments, newAttachment]
+          setStoredItem(STORAGE_KEYS.ATTACHMENTS, ideaId, updatedAttachments)
+
+          await this.logTimelineEvent(ideaId, 'attachments_updated', {
+            added: [newAttachment],
+            removed: [],
+          })
+
+          resolve(newAttachment)
+        } catch (error) {
+          reject(error)
+        }
+      }
+      reader.onerror = () => reject(new Error('Falha ao ler arquivo.'))
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async removeAttachment(ideaId: string, attachmentId: string): Promise<void> {
+    const attachments = (await this.getAttachments(ideaId)) || []
+    const toRemove = attachments.find((a) => a.id === attachmentId)
+    if (!toRemove) return
+
+    const updatedAttachments = attachments.filter((a) => a.id !== attachmentId)
+    setStoredItem(STORAGE_KEYS.ATTACHMENTS, ideaId, updatedAttachments)
+
+    await this.logTimelineEvent(ideaId, 'attachments_updated', {
+      added: [],
+      removed: [toRemove],
+    })
   }
 
   // --- Snapshot Operations ---

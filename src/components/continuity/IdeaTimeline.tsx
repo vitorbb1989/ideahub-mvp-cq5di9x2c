@@ -2,7 +2,6 @@ import { IdeaTimelineEvent, STATUS_LABELS } from '@/types'
 import {
   Activity,
   Circle,
-  CheckCircle2,
   FileText,
   Camera,
   Tag,
@@ -10,6 +9,7 @@ import {
   ListTodo,
   Link as LinkIcon,
   AlertCircle,
+  Paperclip,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -29,6 +29,8 @@ const getIcon = (type: string) => {
       return <ListTodo className="w-4 h-4 text-green-500" />
     case 'references_updated':
       return <LinkIcon className="w-4 h-4 text-orange-500" />
+    case 'attachments_updated':
+      return <Paperclip className="w-4 h-4 text-pink-500" />
     case 'status_changed':
       return <Activity className="w-4 h-4 text-indigo-500" />
     case 'priority_updated':
@@ -50,6 +52,8 @@ const getTitle = (type: string) => {
       return 'Checklist Atualizado'
     case 'references_updated':
       return 'Referências Atualizadas'
+    case 'attachments_updated':
+      return 'Anexos Atualizados'
     case 'status_changed':
       return 'Status Alterado'
     case 'priority_updated':
@@ -167,6 +171,27 @@ const ReferencesChanges = ({
   </div>
 )
 
+const AttachmentsChanges = ({
+  added,
+  removed,
+}: {
+  added: any[]
+  removed: any[]
+}) => (
+  <div className="space-y-1 mt-1 text-xs">
+    {added.map((item: any, i: number) => (
+      <div key={`add-${i}`} className="flex items-center gap-1 text-green-600">
+        <span className="font-semibold">+</span> Arquivo anexado: "{item.name}"
+      </div>
+    ))}
+    {removed.map((item: any, i: number) => (
+      <div key={`rem-${i}`} className="flex items-center gap-1 text-red-600">
+        <span className="font-semibold">-</span> Arquivo removido: "{item.name}"
+      </div>
+    ))}
+  </div>
+)
+
 export function IdeaTimeline({ events }: IdeaTimelineProps) {
   const renderPayload = (event: IdeaTimelineEvent) => {
     if (!event.payload) return null
@@ -191,6 +216,13 @@ export function IdeaTimeline({ events }: IdeaTimelineProps) {
             added={event.payload.added || []}
             removed={event.payload.removed || []}
             updated={event.payload.updated || []}
+          />
+        )
+      case 'attachments_updated':
+        return (
+          <AttachmentsChanges
+            added={event.payload.added || []}
+            removed={event.payload.removed || []}
           />
         )
       case 'status_changed':
