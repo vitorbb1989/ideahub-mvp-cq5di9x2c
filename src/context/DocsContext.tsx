@@ -213,18 +213,17 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
     return provider.listIdeaDocs(ideaId)
   }
 
-  const listVersions = async (docId: string) => {
+  const listVersions = useCallback(async (docId: string) => {
     return provider.listVersions(docId)
-  }
+  }, [])
 
-  const restoreVersion = async (docId: string, versionId: string) => {
-    try {
+  const restoreVersion = useCallback(
+    async (docId: string, versionId: string) => {
       await provider.restoreVersion(docId, versionId)
       await refreshDocs()
-    } catch (error) {
-      throw error
-    }
-  }
+    },
+    [refreshDocs],
+  )
 
   return (
     <DocsContext.Provider

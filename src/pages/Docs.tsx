@@ -66,7 +66,7 @@ export default function Docs() {
       // or if the IDs mismatch (switching files)
       setLocalContent(selectedFile.content)
     }
-  }, [selectedFileId, files]) // Depend on files too to catch restore updates
+  }, [selectedFile])
 
   // Debounced Auto-Save
   useEffect(() => {

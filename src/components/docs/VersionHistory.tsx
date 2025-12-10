@@ -39,24 +39,24 @@ export function VersionHistory({
   const { toast } = useToast()
 
   useEffect(() => {
+    const loadVersions = async () => {
+      setIsLoading(true)
+      try {
+        const data = await listVersions(docId)
+        setVersions(data)
+        if (data.length > 0) setSelectedVersion(data[0])
+      } catch (error) {
+        console.error(error)
+        toast({ variant: 'destructive', title: 'Erro ao carregar histórico' })
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     if (isOpen && docId) {
       loadVersions()
     }
-  }, [isOpen, docId])
-
-  const loadVersions = async () => {
-    setIsLoading(true)
-    try {
-      const data = await listVersions(docId)
-      setVersions(data)
-      if (data.length > 0) setSelectedVersion(data[0])
-    } catch (error) {
-      console.error(error)
-      toast({ variant: 'destructive', title: 'Erro ao carregar histórico' })
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  }, [isOpen, docId, listVersions, toast])
 
   const handleRestore = async () => {
     if (!selectedVersion) return
