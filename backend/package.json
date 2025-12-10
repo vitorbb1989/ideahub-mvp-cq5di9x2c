@@ -1,7 +1,7 @@
 {
-  "name": "backend",
+  "name": "ideahub-backend",
   "version": "0.0.1",
-  "description": "",
+  "description": "IdeaHub Backend API - NestJS + PostgreSQL + JWT Auth",
   "author": "",
   "private": true,
   "license": "UNLICENSED",

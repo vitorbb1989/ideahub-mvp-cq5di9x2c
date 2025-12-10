@@ -1,132 +1,224 @@
-# Projeto Criado com o Skip
+# IdeaHub MVP
 
-Este projeto foi criado de ponta a ponta com o [Skip](https://goskip.dev).
+Plataforma completa de gestao de ideias - capture, organize e acompanhe suas ideias desde a concepcao ate a execucao.
 
-## 🚀 Stack Tecnológica
+## Visao Geral
 
-- **React 19** - Biblioteca JavaScript para construção de interfaces
-- **Vite** - Build tool extremamente rápida
-- **TypeScript** - Superset tipado do JavaScript
-- **Shadcn UI** - Componentes reutilizáveis e acessíveis
+O IdeaHub e uma aplicacao full-stack para gerenciamento de ideias com:
+- Captura rapida de ideias (Inbox)
+- Quadro Kanban com drag-and-drop
+- Catalogo com filtros avancados
+- Sistema de documentos com versionamento
+- Biblioteca de prompts para IA
+- Dashboard com insights e metricas
+
+## Stack Tecnologica
+
+### Frontend
+- **React 19** - Biblioteca para construcao de interfaces
+- **Vite** - Build tool com Rolldown
+- **TypeScript** - Tipagem estatica
+- **Shadcn UI** - Componentes acessiveis baseados em Radix UI
 - **Tailwind CSS** - Framework CSS utility-first
-- **React Router** - Roteamento para aplicações React
-- **React Hook Form** - Gerenciamento de formulários performático
-- **Zod** - Validação de schemas TypeScript-first
-- **Recharts** - Biblioteca de gráficos para React
+- **React Router 6** - Roteamento SPA
+- **React Hook Form + Zod** - Formularios com validacao
+- **Recharts** - Graficos e visualizacoes
 
-## 📋 Pré-requisitos
+### Backend
+- **NestJS** - Framework Node.js
+- **TypeORM** - ORM para PostgreSQL
+- **PostgreSQL** - Banco de dados relacional
+- **JWT** - Autenticacao
+- **Swagger** - Documentacao da API
+
+## Pre-requisitos
 
 - Node.js 18+
 - npm
+- Docker & Docker Compose (para o backend)
 
-## 🔧 Instalação
+## Instalacao Rapida
+
+### Frontend (modo localStorage)
 
 ```bash
+# Instalar dependencias
 npm install
-```
 
-## 💻 Scripts Disponíveis
-
-### Desenvolvimento
-
-```bash
-# Iniciar servidor de desenvolvimento
-npm start
-# ou
+# Iniciar em desenvolvimento
 npm run dev
 ```
 
-Abre a aplicação em modo de desenvolvimento em [http://localhost:5173](http://localhost:5173).
+Acesse: http://localhost:8080
 
-### Build
-
-```bash
-# Build para produção
-npm run build
-
-# Build para desenvolvimento
-npm run build:dev
-```
-
-Gera os arquivos otimizados para produção na pasta `dist/`.
-
-### Preview
+### Backend + PostgreSQL
 
 ```bash
-# Visualizar build de produção localmente
-npm run preview
+# Entrar no diretorio do backend
+cd backend
+
+# Instalar dependencias
+npm install
+
+# Iniciar PostgreSQL via Docker
+docker-compose up -d
+
+# Iniciar o backend
+npm run start:dev
 ```
 
-Permite visualizar a build de produção localmente antes do deploy.
+- API: http://localhost:3000/api
+- Swagger: http://localhost:3000/api/docs
+- pgAdmin: http://localhost:5050
 
-### Linting e Formatação
+### Conectar Frontend ao Backend
 
-```bash
-# Executar linter
-npm run lint
+Edite o arquivo `.env` na raiz:
 
-# Executar linter e corrigir problemas automaticamente
-npm run lint:fix
-
-# Formatar código com Prettier
-npm run format
+```env
+VITE_USE_BACKEND=true
+VITE_API_URL=http://localhost:3000/api
 ```
 
-## 📁 Estrutura do Projeto
+## Scripts Disponiveis
+
+### Frontend
+
+| Comando | Descricao |
+|---------|-----------|
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run build` | Build para producao |
+| `npm run preview` | Visualizar build local |
+| `npm run lint` | Verificar codigo |
+| `npm run format` | Formatar codigo |
+
+### Backend
+
+| Comando | Descricao |
+|---------|-----------|
+| `npm run start:dev` | Desenvolvimento com hot reload |
+| `npm run build` | Build para producao |
+| `npm run start:prod` | Iniciar em producao |
+| `npm run lint` | Verificar codigo |
+| `npm run test` | Executar testes |
+
+## Estrutura do Projeto
 
 ```
-.
-├── src/              # Código fonte da aplicação
-├── public/           # Arquivos estáticos
-├── dist/             # Build de produção (gerado)
-├── node_modules/     # Dependências (gerado)
-└── package.json      # Configurações e dependências do projeto
+ideahub-mvp/
+├── src/                    # Frontend React
+│   ├── components/         # Componentes reutilizaveis
+│   │   ├── ui/            # Componentes Shadcn UI
+│   │   ├── continuity/    # Features de continuidade
+│   │   └── docs/          # Componentes de documentos
+│   ├── pages/             # Paginas da aplicacao
+│   ├── context/           # Contextos React (Auth, Idea, Docs, Prompt)
+│   ├── services/          # Servicos e API
+│   ├── hooks/             # Custom hooks
+│   ├── lib/               # Utilitarios
+│   └── types/             # Definicoes TypeScript
+├── backend/               # API NestJS
+│   ├── src/
+│   │   ├── modules/       # Modulos de dominio
+│   │   │   ├── auth/      # Autenticacao JWT
+│   │   │   ├── users/     # Gestao de usuarios
+│   │   │   ├── ideas/     # CRUD de ideias
+│   │   │   ├── documents/ # Documentos com versoes
+│   │   │   └── prompts/   # Templates de prompts
+│   │   ├── config/        # Configuracoes
+│   │   └── common/        # Guards, decorators
+│   └── docker-compose.yml # PostgreSQL + pgAdmin
+├── public/                # Assets estaticos
+└── dist/                  # Build de producao
 ```
 
-## 🎨 Componentes UI
+## Funcionalidades
 
-Este template inclui uma biblioteca completa de componentes Shadcn UI baseados em Radix UI:
+### Gestao de Ideias
+- Captura rapida no Inbox
+- Classificacao por status (Inbox, Avaliando, Aprovada, Em Progresso, Concluida, Arquivada)
+- Categorizacao (Produto, Marketing, Tecnologia, Business, Design)
+- Sistema de tags
+- Calculo automatico de prioridade (Impacto/Esforco)
 
-- Accordion
-- Alert Dialog
-- Avatar
-- Button
-- Checkbox
-- Dialog
-- Dropdown Menu
-- Form
-- Input
-- Label
-- Select
-- Switch
-- Tabs
-- Toast
-- Tooltip
-- E muito mais...
+### Continuidade de Trabalho
+- Registro de "Onde parei"
+- Checklist de tarefas
+- Snapshots de progresso
+- Timeline de alteracoes
+- Links de referencia
+- Anexos de arquivos
 
-## 📝 Ferramentas de Qualidade de Código
+### Documentos
+- Editor Markdown com preview
+- Sistema de pastas
+- Historico de versoes
+- Restauracao de versoes
+- Vinculacao com ideias
 
-- **TypeScript**: Tipagem estática
-- **ESLint**: Análise de código estático
-- **Oxlint**: Linter extremamente rápido
-- **Prettier**: Formatação automática de código
+### Prompts
+- Biblioteca de templates
+- Favoritos
+- Contador de uso
+- Categorias e tags
 
-## 🔄 Workflow de Desenvolvimento
+### Dashboard
+- Ideias recentes
+- Em progresso
+- Ideias paradas (30+ dias)
+- Graficos e metricas
 
-1. Instale as dependências: `npm install`
-2. Inicie o servidor de desenvolvimento: `npm start`
-3. Faça suas alterações
-4. Verifique o código: `npm run lint`
-5. Formate o código: `npm run format`
-6. Crie a build: `npm run build`
-7. Visualize a build: `npm run preview`
+## API Endpoints
 
-## 📦 Build e Deploy
+### Autenticacao
+- `POST /api/auth/register` - Criar conta
+- `POST /api/auth/login` - Autenticar
 
-Para criar uma build otimizada para produção:
+### Usuarios
+- `GET /api/users/me` - Perfil atual
+- `PATCH /api/users/me` - Atualizar perfil
 
-```bash
-npm run build
+### Ideias
+- `GET /api/ideas` - Listar
+- `POST /api/ideas` - Criar
+- `GET /api/ideas/:id` - Obter
+- `PATCH /api/ideas/:id` - Atualizar
+- `DELETE /api/ideas/:id` - Remover
+
+### Documentos
+- `GET /api/documents` - Listar
+- `POST /api/documents` - Criar
+- `PATCH /api/documents/:id` - Atualizar
+- `DELETE /api/documents/:id` - Remover
+- `POST /api/documents/:id/restore/:versionId` - Restaurar versao
+
+### Prompts
+- `GET /api/prompts` - Listar
+- `POST /api/prompts` - Criar
+- `PATCH /api/prompts/:id` - Atualizar
+- `DELETE /api/prompts/:id` - Remover
+- `POST /api/prompts/:id/favorite` - Toggle favorito
+
+## Variaveis de Ambiente
+
+### Frontend (.env)
+```env
+VITE_USE_BACKEND=false
+VITE_API_URL=http://localhost:3000/api
 ```
 
-Os arquivos otimizados serão gerados na pasta `dist/` e estarão prontos para deploy.
+### Backend (backend/.env)
+```env
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=ideahub
+DATABASE_PASSWORD=ideahub_secret
+DATABASE_NAME=ideahub
+JWT_SECRET=your-super-secret-key
+JWT_EXPIRES_IN=7d
+PORT=3000
+```
+
+## Licenca
+
+Projeto privado - Todos os direitos reservados.
