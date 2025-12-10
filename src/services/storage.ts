@@ -24,6 +24,7 @@ export const STORAGE_KEYS = {
   DOCS_FOLDERS: 'ideahub:docs:folders',
   DOCS_FILES: 'ideahub:docs:files',
   DOCS_LINKS: 'ideahub:docs:idea_links',
+  DOCS_VERSIONS: 'ideahub:docs:versions',
 }
 
 export const generateId = () => Math.random().toString(36).substring(2, 9)

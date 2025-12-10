@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react'
-import { DocFolder, DocFile } from '@/types'
+import { DocFolder, DocFile, DocVersion } from '@/types'
 import { docsApiProvider as provider } from '@/services/docsApiProvider'
 import { useToast } from '@/hooks/use-toast'
 
@@ -33,6 +33,8 @@ interface DocsContextType {
   linkDocToIdea: (ideaId: string, docId: string) => Promise<void>
   unlinkDocFromIdea: (ideaId: string, docId: string) => Promise<void>
   getIdeaDocs: (ideaId: string) => Promise<DocFile[]>
+  listVersions: (docId: string) => Promise<DocVersion[]>
+  restoreVersion: (docId: string, versionId: string) => Promise<void>
 }
 
 const DocsContext = createContext<DocsContextType | undefined>(undefined)
@@ -150,6 +152,7 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       await provider.updateFile(id, updates)
       await refreshDocs()
+      // Only toast if name changes, or rely on UI to show "Saved" state for content
       if (updates.name) toast({ title: 'Documento atualizado' })
     } catch (error) {
       toast({
@@ -210,6 +213,19 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
     return provider.listIdeaDocs(ideaId)
   }
 
+  const listVersions = async (docId: string) => {
+    return provider.listVersions(docId)
+  }
+
+  const restoreVersion = async (docId: string, versionId: string) => {
+    try {
+      await provider.restoreVersion(docId, versionId)
+      await refreshDocs()
+    } catch (error) {
+      throw error
+    }
+  }
+
   return (
     <DocsContext.Provider
       value={{
@@ -226,6 +242,8 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
         linkDocToIdea,
         unlinkDocFromIdea,
         getIdeaDocs,
+        listVersions,
+        restoreVersion,
       }}
     >
       {children}

@@ -165,6 +165,14 @@ export interface DocFile {
   updatedAt: string
 }
 
+export interface DocVersion {
+  id: string
+  docId: string
+  content: string
+  name: string
+  createdAt: string
+}
+
 export interface IdeaDocLink {
   ideaId: string
   docId: string
@@ -193,4 +201,6 @@ export interface DocsProvider {
   linkDocToIdea: (ideaId: string, docId: string) => Promise<void>
   unlinkDocFromIdea: (ideaId: string, docId: string) => Promise<void>
   listIdeaDocs: (ideaId: string) => Promise<DocFile[]>
+  listVersions: (docId: string) => Promise<DocVersion[]>
+  restoreVersion: (docId: string, versionId: string) => Promise<void>
 }

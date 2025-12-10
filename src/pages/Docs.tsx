@@ -1,8 +1,9 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { FolderTree } from '@/components/docs/FolderTree'
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor'
 import { ImportModal } from '@/components/docs/ImportModal'
 import { DocsFileList } from '@/components/docs/DocsFileList'
+import { VersionHistory } from '@/components/docs/VersionHistory'
 import { getSnippet } from '@/components/docs/docsUtils'
 import { useDocs } from '@/context/DocsContext'
 import { Button } from '@/components/ui/button'
@@ -11,7 +12,16 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from '@/components/ui/resizable'
-import { FileText, Upload, Trash2, Loader2, Search, X } from 'lucide-react'
+import {
+  FileText,
+  Upload,
+  Trash2,
+  Loader2,
+  Search,
+  X,
+  History,
+  Save,
+} from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { formatDistanceToNow } from 'date-fns'
@@ -24,6 +34,13 @@ export default function Docs() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null)
   const [isEditingFile, setIsEditingFile] = useState(false)
+
+  // Editor State
+  const [localContent, setLocalContent] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Version History State
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false)
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('')
@@ -41,6 +58,31 @@ export default function Docs() {
 
   const selectedFile = files.find((f) => f.id === selectedFileId)
   const currentFolder = folders.find((f) => f.id === selectedFolderId)
+
+  // Sync local content when file changes or is updated externally
+  useEffect(() => {
+    if (selectedFile) {
+      // Only update local content if we are NOT currently typing/saving to avoid overwriting cursor
+      // or if the IDs mismatch (switching files)
+      setLocalContent(selectedFile.content)
+    }
+  }, [selectedFileId, files]) // Depend on files too to catch restore updates
+
+  // Debounced Auto-Save
+  useEffect(() => {
+    if (!selectedFile || localContent === selectedFile.content) {
+      setIsSaving(false)
+      return
+    }
+
+    setIsSaving(true)
+    const timer = setTimeout(async () => {
+      await updateFile(selectedFile.id, { content: localContent })
+      setIsSaving(false)
+    }, 2000)
+
+    return () => clearTimeout(timer)
+  }, [localContent, selectedFile, updateFile])
 
   // Search Logic
   const searchResults = useMemo(() => {
@@ -104,10 +146,10 @@ export default function Docs() {
     setIsCreatingFile(false)
   }
 
-  const handleSaveContent = async (content: string) => {
-    if (selectedFile) {
-      await updateFile(selectedFile.id, { content })
-    }
+  // Handle immediate save from editor (e.g. CTRL+S) - NOT IMPLEMENTED in MarkdownEditor but good to have
+  const handleImmediateSave = async (content: string) => {
+    setLocalContent(content)
+    // If needed we could force save immediately here
   }
 
   const handleRenameFile = async (name: string) => {
@@ -259,6 +301,11 @@ export default function Docs() {
                       {selectedFile.name}
                     </h2>
                   )}
+                  {isSaving && (
+                    <span className="text-xs text-muted-foreground flex items-center gap-1 animate-pulse">
+                      <Save className="w-3 h-3" /> Salvando...
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-muted-foreground mr-2">
@@ -267,6 +314,16 @@ export default function Docs() {
                       locale: ptBR,
                     })}
                   </span>
+                  <div className="h-4 w-px bg-border mx-1" />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setIsHistoryOpen(true)}
+                    title="Histórico de Versões"
+                  >
+                    <History className="w-4 h-4 mr-2" />
+                    Histórico
+                  </Button>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -291,8 +348,8 @@ export default function Docs() {
               </div>
               <div className="flex-1 min-h-0">
                 <MarkdownEditor
-                  content={selectedFile.content}
-                  onChange={handleSaveContent}
+                  content={localContent}
+                  onChange={setLocalContent}
                 />
               </div>
             </div>
@@ -319,6 +376,14 @@ export default function Docs() {
         onClose={() => setIsImportOpen(false)}
         files={droppedFiles}
       />
+
+      {selectedFile && (
+        <VersionHistory
+          docId={selectedFile.id}
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+        />
+      )}
     </div>
   )
 }
