@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from 'react'
 import { DocFolder, DocFile } from '@/types'
-import { docsLocalProvider as provider } from '@/services/docsLocalProvider'
+import { docsApiProvider as provider } from '@/services/docsApiProvider'
 import { useToast } from '@/hooks/use-toast'
 
 interface DocsContextType {
@@ -55,7 +55,14 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
       setFiles(fls)
     } catch (error) {
       console.error(error)
-      toast({ variant: 'destructive', title: 'Erro ao carregar documentos' })
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao carregar documentos',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Falha na comunicação com o servidor',
+      })
     } finally {
       setIsLoading(false)
     }
@@ -106,7 +113,12 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
       await refreshDocs()
       toast({ title: 'Pasta removida' })
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Erro' })
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description:
+          error instanceof Error ? error.message : 'Falha ao remover pasta',
+      })
       throw error
     }
   }
@@ -156,7 +168,12 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
       await refreshDocs()
       toast({ title: 'Documento removido' })
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Erro' })
+      toast({
+        variant: 'destructive',
+        title: 'Erro',
+        description:
+          error instanceof Error ? error.message : 'Falha ao remover arquivo',
+      })
       throw error
     }
   }
@@ -166,7 +183,11 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
       await provider.linkDocToIdea(ideaId, docId)
       toast({ title: 'Documento vinculado' })
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Erro ao vincular' })
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao vincular',
+        description: error instanceof Error ? error.message : undefined,
+      })
       throw error
     }
   }
@@ -176,7 +197,11 @@ export const DocsProvider: React.FC<{ children: React.ReactNode }> = ({
       await provider.unlinkDocFromIdea(ideaId, docId)
       toast({ title: 'Vínculo removido' })
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Erro ao desvincular' })
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao desvincular',
+        description: error instanceof Error ? error.message : undefined,
+      })
       throw error
     }
   }
