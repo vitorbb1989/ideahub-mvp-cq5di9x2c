@@ -23,6 +23,7 @@ import SystemHealth from './pages/SystemHealth'
 import PromptLibrary from './pages/PromptLibrary'
 import PromptGeneratorPage from './pages/PromptGeneratorPage'
 import LoadTest from './pages/LoadTest'
+import Docs from './pages/Docs'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { Loader2 } from 'lucide-react'
@@ -93,6 +94,7 @@ const App = () => (
               <Route path="/board" element={<Board />} />
               <Route path="/catalog" element={<Catalog />} />
               <Route path="/ideas/:id" element={<IdeaDetail />} />
+              <Route path="/docs" element={<Docs />} />
               <Route path="/documentation" element={<Documentation />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/persistence-test" element={<PersistenceTest />} />

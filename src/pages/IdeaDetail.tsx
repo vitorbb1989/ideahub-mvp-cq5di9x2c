@@ -8,6 +8,7 @@ import { Separator } from '@/components/ui/separator'
 import { LastSavedState } from '@/components/continuity/LastSavedState'
 import { IdeaChecklist } from '@/components/continuity/IdeaChecklist'
 import { IdeaLinkedDocs } from '@/components/continuity/IdeaLinkedDocs'
+import { IdeaLinkedInternalDocs } from '@/components/continuity/IdeaLinkedInternalDocs'
 import { IdeaTimeline } from '@/components/continuity/IdeaTimeline'
 import { IdeaSnapshots } from '@/components/continuity/IdeaSnapshots'
 import { IdeaAttachments } from '@/components/continuity/IdeaAttachments'
@@ -80,7 +81,7 @@ export default function IdeaDetail() {
     )
   }
 
-  if (!idea) {
+  if (!idea || !id) {
     return (
       <div className="flex flex-col items-center justify-center h-[50vh] gap-4">
         <h2 className="text-xl font-semibold">Ideia não encontrada</h2>
@@ -214,6 +215,7 @@ export default function IdeaDetail() {
             </div>
 
             <div className="space-y-6">
+              <IdeaLinkedInternalDocs ideaId={id} />
               <IdeaLinkedDocs
                 initialLinks={pendingReferences}
                 onChange={setPendingReferences}

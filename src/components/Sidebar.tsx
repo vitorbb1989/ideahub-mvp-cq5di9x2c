@@ -15,6 +15,7 @@ import {
   BookTemplate,
   Activity,
   Zap,
+  FolderOpen,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -34,6 +35,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { to: '/resume', label: 'Resume', icon: PlayCircle },
     { to: '/board', label: 'Board', icon: KanbanSquare },
     { to: '/catalog', label: 'Catálogo', icon: Library },
+    { to: '/docs', label: 'Docs Hub', icon: FolderOpen },
     { to: '/prompts/generator', label: 'Gerador IA', icon: Wand2 },
     {
       to: '/prompts/library',

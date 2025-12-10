@@ -19,6 +19,11 @@ export const STORAGE_KEYS = {
 
   // New
   PROMPT_TEMPLATES: 'ideahub_prompt_templates',
+
+  // Docs Hub
+  DOCS_FOLDERS: 'ideahub:docs:folders',
+  DOCS_FILES: 'ideahub:docs:files',
+  DOCS_LINKS: 'ideahub:docs:idea_links',
 }
 
 export const generateId = () => Math.random().toString(36).substring(2, 9)

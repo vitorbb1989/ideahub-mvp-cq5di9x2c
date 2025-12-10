@@ -145,3 +145,52 @@ export interface IdeaTimelineEvent {
   createdAt: string
   payload?: Record<string, any>
 }
+
+// Docs Hub Types
+
+export interface DocFolder {
+  id: string
+  name: string
+  parentId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface DocFile {
+  id: string
+  folderId: string | null
+  name: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface IdeaDocLink {
+  ideaId: string
+  docId: string
+  createdAt: string
+}
+
+export interface DocsProvider {
+  listFolders: () => Promise<DocFolder[]>
+  createFolder: (name: string, parentId: string | null) => Promise<DocFolder>
+  renameFolder: (id: string, name: string) => Promise<void>
+  deleteFolder: (
+    id: string,
+    action: 'delete_content' | 'move_to_root',
+  ) => Promise<void>
+  listFiles: () => Promise<DocFile[]>
+  createFile: (
+    name: string,
+    content: string,
+    folderId: string | null,
+  ) => Promise<DocFile>
+  updateFile: (
+    id: string,
+    updates: { name?: string; content?: string; folderId?: string | null },
+  ) => Promise<DocFile>
+  deleteFile: (id: string) => Promise<void>
+  linkDocToIdea: (ideaId: string, docId: string) => Promise<void>
+  unlinkDocFromIdea: (ideaId: string, docId: string) => Promise<void>
+  listIdeaDocs: (ideaId: string) => Promise<DocFile[]>
+}
