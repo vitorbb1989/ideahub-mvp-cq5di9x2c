@@ -49,6 +49,7 @@ export default function Login() {
       navigate('/')
     } catch (error) {
       // Error is handled by AuthContext toast
+      // We could also set a form error here if needed
     } finally {
       setIsLoading(false)
     }
@@ -64,7 +65,7 @@ export default function Login() {
           <h1 className="text-2xl font-bold tracking-tight">IdeaHub MVP</h1>
         </div>
 
-        <Card>
+        <Card className="animate-fade-in-up">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl">Entrar</CardTitle>
             <CardDescription>
@@ -87,6 +88,8 @@ export default function Login() {
                         <Input
                           placeholder="seu@email.com"
                           type="email"
+                          autoComplete="email"
+                          autoFocus
                           {...field}
                         />
                       </FormControl>
@@ -104,6 +107,7 @@ export default function Login() {
                         <Input
                           placeholder="******"
                           type="password"
+                          autoComplete="current-password"
                           {...field}
                         />
                       </FormControl>

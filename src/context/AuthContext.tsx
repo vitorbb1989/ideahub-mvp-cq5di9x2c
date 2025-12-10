@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser(user)
       toast({
         title: 'Bem-vindo de volta!',
-        description: `Login realizado como ${user.name}`,
+        description: `Login realizado com sucesso.`,
       })
     } catch (error) {
       console.error(error)

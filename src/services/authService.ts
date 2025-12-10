@@ -3,6 +3,9 @@ import { STORAGE_KEYS, getStored, setStored, generateId } from './storage'
 
 class AuthService {
   async login(email: string, password: string): Promise<User> {
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 800))
+
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -10,7 +13,7 @@ class AuthService {
     const user = users.find((u) => u.email === email && u.password === password)
 
     if (!user) {
-      throw new Error('Credenciais inválidas.')
+      throw new Error('Credenciais inválidas. Verifique seu e-mail e senha.')
     }
 
     const publicUser: User = {
@@ -24,13 +27,16 @@ class AuthService {
   }
 
   async register(name: string, email: string, password: string): Promise<User> {
+    // Simulate network delay
+    await new Promise((resolve) => setTimeout(resolve, 800))
+
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
     )
 
     if (users.some((u) => u.email === email)) {
-      throw new Error('E-mail já cadastrado.')
+      throw new Error('Este e-mail já está cadastrado.')
     }
 
     const newUser = {
@@ -58,6 +64,8 @@ class AuthService {
   }
 
   async getCurrentUser(): Promise<User | null> {
+    // Simulate network delay for session check
+    await new Promise((resolve) => setTimeout(resolve, 400))
     return getStored<User | null>(STORAGE_KEYS.SESSION, null)
   }
 }
