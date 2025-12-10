@@ -1,9 +1,20 @@
 import { User } from '@/types'
 import { STORAGE_KEYS, getStored, setStored, generateId } from './storage'
 import { apiCall } from '@/lib/apiMiddleware'
+import { apiClient, isBackendMode } from '@/lib/apiClient'
 
 class AuthService {
   async login(email: string, password: string): Promise<User> {
+    if (isBackendMode()) {
+      const response = await apiClient.post<{ user: User; accessToken: string }>(
+        '/auth/login',
+        { email, password }
+      )
+      apiClient.setToken(response.accessToken)
+      setStored(STORAGE_KEYS.SESSION, response.user)
+      return response.user
+    }
+
     return apiCall('POST /auth/login', async () => {
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 800))
@@ -31,6 +42,16 @@ class AuthService {
   }
 
   async register(name: string, email: string, password: string): Promise<User> {
+    if (isBackendMode()) {
+      const response = await apiClient.post<{ user: User; accessToken: string }>(
+        '/auth/register',
+        { name, email, password }
+      )
+      apiClient.setToken(response.accessToken)
+      setStored(STORAGE_KEYS.SESSION, response.user)
+      return response.user
+    }
+
     return apiCall('POST /auth/register', async () => {
       // Simulate network delay
       await new Promise((resolve) => setTimeout(resolve, 800))
@@ -65,12 +86,32 @@ class AuthService {
   }
 
   async logout() {
+    if (isBackendMode()) {
+      apiClient.setToken(null)
+      localStorage.removeItem(STORAGE_KEYS.SESSION)
+      return
+    }
+
     return apiCall('POST /auth/logout', async () => {
       localStorage.removeItem(STORAGE_KEYS.SESSION)
     })
   }
 
   async getCurrentUser(): Promise<User | null> {
+    if (isBackendMode()) {
+      const token = apiClient.getToken()
+      if (!token) return null
+
+      try {
+        const user = await apiClient.get<User>('/users/me')
+        setStored(STORAGE_KEYS.SESSION, user)
+        return user
+      } catch {
+        apiClient.setToken(null)
+        return null
+      }
+    }
+
     return apiCall(
       'GET /auth/me',
       async () => {
