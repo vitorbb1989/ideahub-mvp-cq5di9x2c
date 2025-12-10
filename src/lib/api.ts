@@ -19,6 +19,8 @@ const STORAGE_KEYS = {
   USERS: 'ideahub_users',
   SESSION: 'ideahub_session',
   ACTIVITIES: 'ideahub_activities',
+  // Shared key with IdeaStateApi
+  TIMELINE_EVENTS: 'ideahub_timeline_events',
 }
 
 // Initial Mock Data
@@ -49,6 +51,30 @@ class MockApi {
     } catch (e) {
       console.error('LocalStorage write error:', e)
       throw new Error('Falha ao salvar dados. Armazenamento cheio?')
+    }
+  }
+
+  // Helper to log granular events to the new timeline system
+  private logTimelineEvent(
+    ideaId: string,
+    type: string,
+    payload: Record<string, any>,
+  ) {
+    try {
+      const allEvents = this.getStored<any>(STORAGE_KEYS.TIMELINE_EVENTS, {})
+      const events = allEvents[ideaId] || []
+
+      events.unshift({
+        id: generateId(),
+        type,
+        createdAt: new Date().toISOString(),
+        payload,
+      })
+
+      allEvents[ideaId] = events
+      this.setStored(STORAGE_KEYS.TIMELINE_EVENTS, allEvents)
+    } catch (e) {
+      console.error('Failed to log timeline event', e)
     }
   }
 
@@ -131,7 +157,6 @@ class MockApi {
 
     const currentUser = users[index]
 
-    // Check email uniqueness if changing
     if (data.email && data.email !== currentUser.email) {
       const emailExists = users.some(
         (u) => u.email === data.email && u.id !== userId,
@@ -141,7 +166,6 @@ class MockApi {
       }
     }
 
-    // Log Activities
     if (data.name && data.name !== currentUser.name) {
       this.logUserActivity(
         userId,
@@ -249,7 +273,6 @@ class MockApi {
     await delay(500)
     let ideas = this.getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
 
-    // Filter by User ID
     ideas = ideas.filter((i) => i.userId === userId)
 
     if (query) {
@@ -294,8 +317,13 @@ class MockApi {
     ideas.unshift(newIdea)
     this.setStored(STORAGE_KEYS.IDEAS, ideas)
 
-    // Log creation event
+    // Log creation event (Legacy)
     this.logEvent(newIdea.id, null, newIdea.status)
+    // Log creation event (Granular)
+    this.logTimelineEvent(newIdea.id, 'status_changed', {
+      oldStatus: null,
+      newStatus: newIdea.status,
+    })
 
     return newIdea
   }
@@ -319,11 +347,36 @@ class MockApi {
       const impact = updates.impact ?? currentIdea.impact
       const effort = updates.effort ?? currentIdea.effort
       updatedIdea.priorityScore = Number((impact / effort).toFixed(2))
+
+      // Log Priority Change
+      if (updatedIdea.priorityScore !== currentIdea.priorityScore) {
+        this.logTimelineEvent(id, 'priority_updated', {
+          oldPriority: currentIdea.priorityScore,
+          newPriority: updatedIdea.priorityScore,
+        })
+      }
     }
 
     // Log status change
     if (updates.status && updates.status !== currentIdea.status) {
-      this.logEvent(id, currentIdea.status, updates.status)
+      this.logEvent(id, currentIdea.status, updates.status) // Legacy
+      this.logTimelineEvent(id, 'status_changed', {
+        oldStatus: currentIdea.status,
+        newStatus: updates.status,
+      })
+    }
+
+    // Log Tag Changes
+    if (updates.tags) {
+      const oldTags = currentIdea.tags.map((t) => t.name)
+      const newTags = updates.tags.map((t) => t.name)
+
+      const added = newTags.filter((t) => !oldTags.includes(t))
+      const removed = oldTags.filter((t) => !newTags.includes(t))
+
+      if (added.length > 0 || removed.length > 0) {
+        this.logTimelineEvent(id, 'tags_updated', { added, removed })
+      }
     }
 
     ideas[index] = updatedIdea

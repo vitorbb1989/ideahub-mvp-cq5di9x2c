@@ -59,6 +59,12 @@ export default function IdeaDetail() {
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false)
   const [snapshotTitle, setSnapshotTitle] = useState('')
 
+  const fetchEvents = async () => {
+    if (!id) return
+    const ev = await ideaStateApi.getEvents(id)
+    setEvents(ev)
+  }
+
   useEffect(() => {
     const loadState = async () => {
       if (!id) return
@@ -86,6 +92,13 @@ export default function IdeaDetail() {
       }
     }
     loadState()
+  }, [id])
+
+  // Poll for events update (since api.ts might update events from other components)
+  useEffect(() => {
+    if (!id) return
+    const interval = setInterval(fetchEvents, 2000)
+    return () => clearInterval(interval)
   }, [id])
 
   // Scroll to section logic
@@ -120,33 +133,143 @@ export default function IdeaDetail() {
 
     const promises = []
 
-    // Save Last State if present
+    // Save Data
     if (pendingLastState) {
       promises.push(ideaStateApi.saveLastState(id, pendingLastState))
     }
-
-    // Explicitly save checklist and references again to ensure consistency
     promises.push(ideaStateApi.saveChecklist(id, pendingChecklist))
     promises.push(ideaStateApi.saveReferences(id, pendingReferences))
 
-    // Detect changes for Events
-    const hasLastStateChanged =
-      JSON.stringify(lastState) !== JSON.stringify(pendingLastState)
-    const hasChecklistChanged =
-      JSON.stringify(checklist) !== JSON.stringify(pendingChecklist)
-    const hasReferencesChanged =
-      JSON.stringify(references) !== JSON.stringify(pendingReferences)
+    // Diff Logic for Last State
+    if (lastState && pendingLastState) {
+      const changes = []
+      const keys: (keyof IdeaLastState)[] = [
+        'whereIStopped',
+        'whatIWasDoing',
+        'nextStep',
+      ]
+      keys.forEach((key) => {
+        if (lastState[key] !== pendingLastState[key]) {
+          changes.push({
+            field: key,
+            oldValue: lastState[key],
+            newValue: pendingLastState[key],
+          })
+        }
+      })
 
-    if (hasLastStateChanged) {
-      promises.push(ideaStateApi.logEvent(id, 'last_state_updated'))
+      if (changes.length > 0) {
+        promises.push(
+          ideaStateApi.logEvent(id, 'last_state_updated', { changes }),
+        )
+      }
+    } else if (!lastState && pendingLastState) {
+      // First time saving state
+      promises.push(
+        ideaStateApi.logEvent(id, 'last_state_updated', {
+          changes: [
+            {
+              field: 'whereIStopped',
+              oldValue: '',
+              newValue: pendingLastState.whereIStopped,
+            },
+            {
+              field: 'whatIWasDoing',
+              oldValue: '',
+              newValue: pendingLastState.whatIWasDoing,
+            },
+            {
+              field: 'nextStep',
+              oldValue: '',
+              newValue: pendingLastState.nextStep,
+            },
+          ],
+        }),
+      )
     }
 
-    if (hasChecklistChanged) {
-      promises.push(ideaStateApi.logEvent(id, 'checklist_updated'))
+    // Diff Logic for Checklist
+    const addedItems = pendingChecklist.filter(
+      (p) => !checklist.find((c) => c.id === p.id),
+    )
+    const removedItems = checklist.filter(
+      (c) => !pendingChecklist.find((p) => p.id === c.id),
+    )
+    const updatedItems = pendingChecklist
+      .filter((p) => {
+        const original = checklist.find((c) => c.id === p.id)
+        return (
+          original && (original.label !== p.label || original.done !== p.done)
+        )
+      })
+      .map((p) => {
+        const original = checklist.find((c) => c.id === p.id)!
+        const change = original.done !== p.done ? 'status' : 'label'
+        return {
+          ...p,
+          change,
+          oldValue: change === 'label' ? original.label : original.done,
+          newValue: change === 'label' ? p.label : p.done,
+        }
+      })
+
+    if (
+      addedItems.length > 0 ||
+      removedItems.length > 0 ||
+      updatedItems.length > 0
+    ) {
+      promises.push(
+        ideaStateApi.logEvent(id, 'checklist_updated', {
+          added: addedItems,
+          removed: removedItems,
+          updated: updatedItems,
+        }),
+      )
     }
 
-    if (hasReferencesChanged) {
-      promises.push(ideaStateApi.logEvent(id, 'references_updated'))
+    // Diff Logic for References
+    const addedRefs = pendingReferences.filter(
+      (p) => !references.find((r) => r.id === p.id),
+    )
+    const removedRefs = references.filter(
+      (r) => !pendingReferences.find((p) => p.id === r.id),
+    )
+    const updatedRefs = pendingReferences
+      .filter((p) => {
+        const original = references.find((r) => r.id === p.id)
+        return (
+          original && (original.title !== p.title || original.url !== p.url)
+        )
+      })
+      .map((p) => {
+        const original = references.find((r) => r.id === p.id)!
+        let changeType = 'title'
+        if (original.title !== p.title && original.url !== p.url)
+          changeType = 'both'
+        else if (original.url !== p.url) changeType = 'url'
+
+        return {
+          ...p,
+          oldTitle: original.title,
+          newTitle: p.title,
+          oldUrl: original.url,
+          newUrl: p.url,
+          change: changeType,
+        }
+      })
+
+    if (
+      addedRefs.length > 0 ||
+      removedRefs.length > 0 ||
+      updatedRefs.length > 0
+    ) {
+      promises.push(
+        ideaStateApi.logEvent(id, 'references_updated', {
+          added: addedRefs,
+          removed: removedRefs,
+          updated: updatedRefs,
+        }),
+      )
     }
 
     try {
@@ -163,7 +286,7 @@ export default function IdeaDetail() {
 
       toast({
         title: 'Progresso salvo!',
-        description: 'Estado atual, checklist e referências foram salvos.',
+        description: 'Todas as alterações foram registradas na linha do tempo.',
       })
     } catch (error) {
       toast({
@@ -282,9 +405,6 @@ export default function IdeaDetail() {
               initialItems={checklist}
               onChange={(items) => {
                 setPendingChecklist(items)
-                if (id) {
-                  ideaStateApi.saveChecklist(id, items).catch(console.error)
-                }
               }}
             />
 
@@ -293,9 +413,6 @@ export default function IdeaDetail() {
               initialLinks={references}
               onChange={(links) => {
                 setPendingReferences(links)
-                if (id) {
-                  ideaStateApi.saveReferences(id, links).catch(console.error)
-                }
               }}
             />
           </div>
