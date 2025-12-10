@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { DocFile } from '@/types'
@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { MarkdownEditor } from '@/components/docs/MarkdownEditor'
 
 interface IdeaLinkedInternalDocsProps {
@@ -26,14 +25,14 @@ export function IdeaLinkedInternalDocs({
   const [isPickerOpen, setIsPickerOpen] = useState(false)
   const [previewDoc, setPreviewDoc] = useState<DocFile | null>(null)
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     const d = await getIdeaDocs(ideaId)
     setDocs(d)
-  }
+  }, [getIdeaDocs, ideaId])
 
   useEffect(() => {
     refresh()
-  }, [ideaId])
+  }, [refresh])
 
   const handleLink = async (docId: string) => {
     await linkDocToIdea(ideaId, docId)
