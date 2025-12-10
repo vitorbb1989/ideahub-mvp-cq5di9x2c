@@ -16,6 +16,7 @@ import { LastSavedState } from '@/components/continuity/LastSavedState'
 import { IdeaChecklist } from '@/components/continuity/IdeaChecklist'
 import { IdeaLinkedDocs } from '@/components/continuity/IdeaLinkedDocs'
 import { IdeaTimeline } from '@/components/continuity/IdeaTimeline'
+import { IdeaSnapshots } from '@/components/continuity/IdeaSnapshots'
 import { ArrowLeft, Save, Camera, Loader2 } from 'lucide-react'
 import { StatusBadge } from '@/components/StatusBadge'
 import { useToast } from '@/hooks/use-toast'
@@ -42,15 +43,13 @@ export default function IdeaDetail() {
   const [lastState, setLastState] = useState<IdeaLastState | null>(null)
   const [checklist, setChecklist] = useState<IdeaChecklistItem[]>([])
   const [references, setReferences] = useState<IdeaReferenceLink[]>([])
+  const [snapshots, setSnapshots] = useState<IdeaSnapshot[]>([])
   const [events, setEvents] = useState<IdeaTimelineEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  // Pending changes state
+  // Pending changes state (only for LastState and References now)
   const [pendingLastState, setPendingLastState] =
     useState<IdeaLastState | null>(null)
-  const [pendingChecklist, setPendingChecklist] = useState<IdeaChecklistItem[]>(
-    [],
-  )
   const [pendingReferences, setPendingReferences] = useState<
     IdeaReferenceLink[]
   >([])
@@ -59,9 +58,15 @@ export default function IdeaDetail() {
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false)
   const [snapshotTitle, setSnapshotTitle] = useState('')
 
-  const fetchEvents = useCallback(async () => {
+  const refreshData = useCallback(async () => {
     if (!id) return
-    const ev = await ideaStateApi.getEvents(id)
+    const [cl, sn, ev] = await Promise.all([
+      ideaStateApi.getChecklist(id),
+      ideaStateApi.getSnapshots(id),
+      ideaStateApi.getEvents(id),
+    ])
+    setChecklist(cl)
+    setSnapshots(sn)
     setEvents(ev)
   }, [id])
 
@@ -70,20 +75,21 @@ export default function IdeaDetail() {
       if (!id) return
       setIsLoading(true)
       try {
-        const [ls, cl, rf, ev] = await Promise.all([
+        const [ls, cl, rf, sn, ev] = await Promise.all([
           ideaStateApi.getLastState(id),
           ideaStateApi.getChecklist(id),
           ideaStateApi.getReferences(id),
+          ideaStateApi.getSnapshots(id),
           ideaStateApi.getEvents(id),
         ])
         setLastState(ls)
         setChecklist(cl)
         setReferences(rf)
+        setSnapshots(sn)
         setEvents(ev)
 
         // Init pending states
         setPendingLastState(ls)
-        setPendingChecklist(cl)
         setPendingReferences(rf)
       } catch (error) {
         console.error('Failed to load idea state', error)
@@ -94,22 +100,15 @@ export default function IdeaDetail() {
     loadState()
   }, [id])
 
-  // Poll for events update (since api.ts might update events from other components)
+  // Poll for events update
   useEffect(() => {
     if (!id) return
-    const interval = setInterval(fetchEvents, 2000)
+    const interval = setInterval(async () => {
+      const ev = await ideaStateApi.getEvents(id)
+      setEvents(ev)
+    }, 2000)
     return () => clearInterval(interval)
-  }, [id, fetchEvents])
-
-  // Scroll to section logic
-  useEffect(() => {
-    if (!isLoading && location.hash === '#last-saved-state') {
-      const el = document.getElementById('last-saved-state')
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth' })
-      }
-    }
-  }, [isLoading])
+  }, [id])
 
   if (isIdeasLoading || isLoading) {
     return (
@@ -128,16 +127,90 @@ export default function IdeaDetail() {
     )
   }
 
+  // --- Granular Checklist Handlers ---
+  const handleAddChecklistItem = async (label: string) => {
+    if (!id) return
+    await ideaStateApi.addChecklistItem(id, label)
+    await refreshData()
+  }
+
+  const handleToggleChecklistItem = async (itemId: string, done: boolean) => {
+    if (!id) return
+    await ideaStateApi.updateChecklistItem(id, itemId, { done })
+    await refreshData()
+  }
+
+  const handleRemoveChecklistItem = async (itemId: string) => {
+    if (!id) return
+    await ideaStateApi.removeChecklistItem(id, itemId)
+    await refreshData()
+  }
+
+  // --- Snapshot Handlers ---
+  const handleCreateSnapshot = async () => {
+    if (!id || !snapshotTitle.trim()) return
+
+    const snapshot: IdeaSnapshot = {
+      id: Math.random().toString(36).substring(2, 9),
+      title: snapshotTitle,
+      createdAt: new Date().toISOString(),
+      data: {
+        ideaTitle: idea.title,
+        ideaSummary: idea.summary,
+        lastState: pendingLastState, // Use current pending state
+        checklist: checklist, // Use current live checklist
+        references: pendingReferences,
+      },
+    }
+
+    try {
+      await ideaStateApi.createSnapshot(id, snapshot)
+      await ideaStateApi.logEvent(id, 'snapshot_created', {
+        snapshotId: snapshot.id,
+      })
+
+      await refreshData()
+
+      toast({
+        title: 'Snapshot criado!',
+        description: `Snapshot "${snapshotTitle}" salvo com sucesso.`,
+      })
+      setIsSnapshotOpen(false)
+      setSnapshotTitle('')
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao criar snapshot',
+      })
+    }
+  }
+
+  const handleUpdateSnapshot = async (snapshotId: string, title: string) => {
+    if (!id) return
+    try {
+      await ideaStateApi.updateSnapshot(id, snapshotId, { title })
+      await refreshData()
+      toast({
+        title: 'Snapshot atualizado',
+        description: 'Título atualizado com sucesso.',
+      })
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar snapshot' })
+    }
+  }
+
+  // --- Batch Save (Last State & References) ---
   const handleSaveState = async () => {
     if (!id) return
 
     const promises = []
 
-    // Save Data
+    // Save Last State
     if (pendingLastState) {
       promises.push(ideaStateApi.saveLastState(id, pendingLastState))
     }
-    promises.push(ideaStateApi.saveChecklist(id, pendingChecklist))
+
+    // Save References
     promises.push(ideaStateApi.saveReferences(id, pendingReferences))
 
     // Diff Logic for Last State
@@ -184,45 +257,6 @@ export default function IdeaDetail() {
               newValue: pendingLastState.nextStep,
             },
           ],
-        }),
-      )
-    }
-
-    // Diff Logic for Checklist
-    const addedItems = pendingChecklist.filter(
-      (p) => !checklist.find((c) => c.id === p.id),
-    )
-    const removedItems = checklist.filter(
-      (c) => !pendingChecklist.find((p) => p.id === c.id),
-    )
-    const updatedItems = pendingChecklist
-      .filter((p) => {
-        const original = checklist.find((c) => c.id === p.id)
-        return (
-          original && (original.label !== p.label || original.done !== p.done)
-        )
-      })
-      .map((p) => {
-        const original = checklist.find((c) => c.id === p.id)!
-        const change = original.done !== p.done ? 'status' : 'label'
-        return {
-          ...p,
-          change,
-          oldValue: change === 'label' ? original.label : original.done,
-          newValue: change === 'label' ? p.label : p.done,
-        }
-      })
-
-    if (
-      addedItems.length > 0 ||
-      removedItems.length > 0 ||
-      updatedItems.length > 0
-    ) {
-      promises.push(
-        ideaStateApi.logEvent(id, 'checklist_updated', {
-          added: addedItems,
-          removed: removedItems,
-          updated: updatedItems,
         }),
       )
     }
@@ -275,62 +309,30 @@ export default function IdeaDetail() {
     try {
       await Promise.all(promises)
 
-      // Refresh events
-      await fetchEvents()
+      // Refresh data
+      const [ls, rf, ev] = await Promise.all([
+        ideaStateApi.getLastState(id),
+        ideaStateApi.getReferences(id),
+        ideaStateApi.getEvents(id),
+      ])
 
-      // Update baselines
-      setLastState(pendingLastState)
-      setChecklist(pendingChecklist)
-      setReferences(pendingReferences)
+      setLastState(ls)
+      setReferences(rf)
+      setEvents(ev)
+
+      // Update pending baseline
+      setPendingLastState(ls)
+      setPendingReferences(rf)
 
       toast({
         title: 'Progresso salvo!',
-        description: 'Todas as alterações foram registradas na linha do tempo.',
+        description: 'Estado e referências foram salvos.',
       })
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Erro ao salvar',
         description: 'Não foi possível salvar o progresso.',
-      })
-    }
-  }
-
-  const handleCreateSnapshot = async () => {
-    if (!id || !snapshotTitle.trim()) return
-
-    const snapshot: IdeaSnapshot = {
-      id: Math.random().toString(36).substring(2, 9),
-      title: snapshotTitle,
-      createdAt: new Date().toISOString(),
-      data: {
-        ideaTitle: idea.title,
-        ideaSummary: idea.summary,
-        lastState: pendingLastState,
-        checklist: pendingChecklist,
-        references: pendingReferences,
-      },
-    }
-
-    try {
-      await ideaStateApi.createSnapshot(id, snapshot)
-      await ideaStateApi.logEvent(id, 'snapshot_created', {
-        snapshotId: snapshot.id,
-      })
-
-      // Refresh events
-      await fetchEvents()
-
-      toast({
-        title: 'Snapshot criado!',
-        description: `Snapshot "${snapshotTitle}" salvo com sucesso.`,
-      })
-      setIsSnapshotOpen(false)
-      setSnapshotTitle('')
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao criar snapshot',
       })
     }
   }
@@ -398,15 +400,22 @@ export default function IdeaDetail() {
           </section>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Checklist */}
-            <IdeaChecklist
-              initialItems={checklist}
-              onChange={(items) => {
-                setPendingChecklist(items)
-              }}
-            />
+            {/* Checklist - Now Realtime */}
+            <div className="space-y-6">
+              <IdeaChecklist
+                items={checklist}
+                onAdd={handleAddChecklistItem}
+                onToggle={handleToggleChecklistItem}
+                onRemove={handleRemoveChecklistItem}
+              />
+              {/* Snapshots List */}
+              <IdeaSnapshots
+                snapshots={snapshots}
+                onUpdate={handleUpdateSnapshot}
+              />
+            </div>
 
-            {/* References */}
+            {/* References - Still Batch */}
             <IdeaLinkedDocs
               initialLinks={references}
               onChange={(links) => {

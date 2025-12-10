@@ -4,47 +4,52 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { IdeaChecklistItem } from '@/types'
-import { CheckSquare, Plus, Trash2 } from 'lucide-react'
+import { CheckSquare, Plus, Trash2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface IdeaChecklistProps {
-  initialItems: IdeaChecklistItem[]
-  onChange: (items: IdeaChecklistItem[]) => void
+  items: IdeaChecklistItem[]
+  onAdd: (label: string) => Promise<void>
+  onToggle: (id: string, done: boolean) => Promise<void>
+  onRemove: (id: string) => Promise<void>
 }
 
-export function IdeaChecklist({ initialItems, onChange }: IdeaChecklistProps) {
-  const [items, setItems] = useState<IdeaChecklistItem[]>([])
+export function IdeaChecklist({
+  items,
+  onAdd,
+  onToggle,
+  onRemove,
+}: IdeaChecklistProps) {
   const [newItemLabel, setNewItemLabel] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
 
-  useEffect(() => {
-    setItems(initialItems)
-  }, [initialItems])
-
-  const addItem = () => {
-    if (!newItemLabel.trim()) return
-    const newItem: IdeaChecklistItem = {
-      id: Math.random().toString(36).substring(2, 9),
-      label: newItemLabel,
-      done: false,
+  const handleAdd = async () => {
+    if (!newItemLabel.trim() || isProcessing) return
+    setIsProcessing(true)
+    try {
+      await onAdd(newItemLabel)
+      setNewItemLabel('')
+    } finally {
+      setIsProcessing(false)
     }
-    const updatedItems = [...items, newItem]
-    setItems(updatedItems)
-    onChange(updatedItems)
-    setNewItemLabel('')
   }
 
-  const toggleItem = (id: string) => {
-    const updatedItems = items.map((item) =>
-      item.id === id ? { ...item, done: !item.done } : item,
-    )
-    setItems(updatedItems)
-    onChange(updatedItems)
+  const handleToggle = async (id: string, currentDone: boolean) => {
+    try {
+      await onToggle(id, !currentDone)
+    } catch (error) {
+      console.error('Failed to toggle item', error)
+    }
   }
 
-  const removeItem = (id: string) => {
-    const updatedItems = items.filter((item) => item.id !== id)
-    setItems(updatedItems)
-    onChange(updatedItems)
+  const handleRemove = async (id: string) => {
+    if (confirm('Tem certeza que deseja remover este item?')) {
+      try {
+        await onRemove(id)
+      } catch (error) {
+        console.error('Failed to remove item', error)
+      }
+    }
   }
 
   return (
@@ -61,10 +66,19 @@ export function IdeaChecklist({ initialItems, onChange }: IdeaChecklistProps) {
             placeholder="Adicionar nova tarefa..."
             value={newItemLabel}
             onChange={(e) => setNewItemLabel(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addItem()}
+            onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+            disabled={isProcessing}
           />
-          <Button size="icon" onClick={addItem} disabled={!newItemLabel.trim()}>
-            <Plus className="w-4 h-4" />
+          <Button
+            size="icon"
+            onClick={handleAdd}
+            disabled={!newItemLabel.trim() || isProcessing}
+          >
+            {isProcessing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Plus className="w-4 h-4" />
+            )}
           </Button>
         </div>
 
@@ -77,7 +91,7 @@ export function IdeaChecklist({ initialItems, onChange }: IdeaChecklistProps) {
               <div className="flex items-center gap-3 overflow-hidden">
                 <Checkbox
                   checked={item.done}
-                  onCheckedChange={() => toggleItem(item.id)}
+                  onCheckedChange={() => handleToggle(item.id, item.done)}
                   id={`item-${item.id}`}
                 />
                 <label
@@ -94,7 +108,7 @@ export function IdeaChecklist({ initialItems, onChange }: IdeaChecklistProps) {
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={() => removeItem(item.id)}
+                onClick={() => handleRemove(item.id)}
               >
                 <Trash2 className="w-3 h-3" />
               </Button>

@@ -20,12 +20,29 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 export interface IdeaStateProvider {
   getLastState(ideaId: string): Promise<IdeaLastState | null>
   saveLastState(ideaId: string, state: IdeaLastState): Promise<void>
+
+  // Checklist - Granular operations
   getChecklist(ideaId: string): Promise<IdeaChecklistItem[]>
-  saveChecklist(ideaId: string, items: IdeaChecklistItem[]): Promise<void>
+  addChecklistItem(ideaId: string, label: string): Promise<IdeaChecklistItem>
+  updateChecklistItem(
+    ideaId: string,
+    itemId: string,
+    updates: Partial<IdeaChecklistItem>,
+  ): Promise<void>
+  removeChecklistItem(ideaId: string, itemId: string): Promise<void>
+
   getReferences(ideaId: string): Promise<IdeaReferenceLink[]>
   saveReferences(ideaId: string, links: IdeaReferenceLink[]): Promise<void>
+
+  // Snapshots
   getSnapshots(ideaId: string): Promise<IdeaSnapshot[]>
   createSnapshot(ideaId: string, snapshot: IdeaSnapshot): Promise<void>
+  updateSnapshot(
+    ideaId: string,
+    snapshotId: string,
+    updates: { title: string },
+  ): Promise<void>
+
   getEvents(ideaId: string): Promise<IdeaTimelineEvent[]>
   logEvent(
     ideaId: string,
@@ -60,6 +77,8 @@ class IdeaStateApiMock implements IdeaStateProvider {
     this.setStored(STORAGE_KEYS.LAST_STATES, ideaId, state)
   }
 
+  // --- Checklist Operations ---
+
   async getChecklist(ideaId: string): Promise<IdeaChecklistItem[]> {
     await delay(200)
     return (
@@ -67,12 +86,77 @@ class IdeaStateApiMock implements IdeaStateProvider {
     )
   }
 
-  async saveChecklist(
+  async addChecklistItem(
     ideaId: string,
-    items: IdeaChecklistItem[],
+    label: string,
+  ): Promise<IdeaChecklistItem> {
+    await delay(200)
+    const items = await this.getChecklist(ideaId)
+    const newItem: IdeaChecklistItem = {
+      id: Math.random().toString(36).substring(2, 9),
+      label,
+      done: false,
+    }
+    const updatedItems = [...items, newItem]
+    this.setStored(STORAGE_KEYS.CHECKLISTS, ideaId, updatedItems)
+
+    // Log event
+    await this.logEvent(ideaId, 'checklist_updated', {
+      added: [newItem],
+      removed: [],
+      updated: [],
+    })
+
+    return newItem
+  }
+
+  async updateChecklistItem(
+    ideaId: string,
+    itemId: string,
+    updates: Partial<IdeaChecklistItem>,
   ): Promise<void> {
     await delay(200)
+    const items = await this.getChecklist(ideaId)
+    const index = items.findIndex((i) => i.id === itemId)
+    if (index === -1) return
+
+    const original = items[index]
+    const updated = { ...original, ...updates }
+    items[index] = updated
+
     this.setStored(STORAGE_KEYS.CHECKLISTS, ideaId, items)
+
+    // Log event
+    const change = original.done !== updated.done ? 'status' : 'label'
+    await this.logEvent(ideaId, 'checklist_updated', {
+      added: [],
+      removed: [],
+      updated: [
+        {
+          ...updated,
+          change,
+          oldValue: change === 'label' ? original.label : original.done,
+          newValue: change === 'label' ? updated.label : updated.done,
+        },
+      ],
+    })
+  }
+
+  async removeChecklistItem(ideaId: string, itemId: string): Promise<void> {
+    await delay(200)
+    const items = await this.getChecklist(ideaId)
+    const itemToRemove = items.find((i) => i.id === itemId)
+    if (!itemToRemove) return
+
+    const updatedItems = items.filter((i) => i.id !== itemId)
+    this.setStored(STORAGE_KEYS.CHECKLISTS, ideaId, updatedItems)
+
+    // Log event
+    await this.logEvent(ideaId, 'checklist_updated', {
+      added: [],
+      removed: [itemToRemove],
+      updated: [],
+    })
   }
 
   async getReferences(ideaId: string): Promise<IdeaReferenceLink[]> {
@@ -90,6 +174,8 @@ class IdeaStateApiMock implements IdeaStateProvider {
     this.setStored(STORAGE_KEYS.REFERENCES, ideaId, links)
   }
 
+  // --- Snapshot Operations ---
+
   async getSnapshots(ideaId: string): Promise<IdeaSnapshot[]> {
     await delay(200)
     return this.getStored<IdeaSnapshot[]>(STORAGE_KEYS.SNAPSHOTS, ideaId) || []
@@ -99,6 +185,20 @@ class IdeaStateApiMock implements IdeaStateProvider {
     await delay(200)
     const snapshots = await this.getSnapshots(ideaId)
     snapshots.unshift(snapshot)
+    this.setStored(STORAGE_KEYS.SNAPSHOTS, ideaId, snapshots)
+  }
+
+  async updateSnapshot(
+    ideaId: string,
+    snapshotId: string,
+    updates: { title: string },
+  ): Promise<void> {
+    await delay(200)
+    const snapshots = await this.getSnapshots(ideaId)
+    const index = snapshots.findIndex((s) => s.id === snapshotId)
+    if (index === -1) return
+
+    snapshots[index] = { ...snapshots[index], ...updates }
     this.setStored(STORAGE_KEYS.SNAPSHOTS, ideaId, snapshots)
   }
 
