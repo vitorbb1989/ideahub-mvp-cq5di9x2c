@@ -58,6 +58,15 @@ export interface Idea {
   updatedAt: string
 }
 
+export interface PromptTemplate {
+  id: string
+  userId: string
+  title: string
+  content: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const STATUS_LABELS: Record<IdeaStatus, string> = {
   inbox: 'Inbox',
   nova_ideia: 'Nova Ideia',

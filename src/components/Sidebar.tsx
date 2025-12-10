@@ -11,6 +11,8 @@ import {
   Settings,
   FileText,
   PlayCircle,
+  Wand2,
+  BookTemplate,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -30,6 +32,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     { to: '/resume', label: 'Resume', icon: PlayCircle },
     { to: '/board', label: 'Board', icon: KanbanSquare },
     { to: '/catalog', label: 'Catálogo', icon: Library },
+    { to: '/prompts/generator', label: 'Gerador IA', icon: Wand2 },
+    {
+      to: '/prompts/library',
+      label: 'Templates',
+      icon: BookTemplate,
+    },
     { to: '/documentation', label: 'Documentação', icon: FileText },
     { to: '/profile', label: 'Perfil', icon: Settings },
   ]

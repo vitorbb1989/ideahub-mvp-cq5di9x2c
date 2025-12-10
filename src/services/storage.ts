@@ -15,6 +15,9 @@ export const STORAGE_KEYS = {
   REFERENCES: 'ideahub_references',
   ATTACHMENTS: 'ideahub_attachments',
   SNAPSHOTS: 'ideahub_snapshots',
+
+  // New
+  PROMPT_TEMPLATES: 'ideahub_prompt_templates',
 }
 
 export const generateId = () => Math.random().toString(36).substring(2, 9)
