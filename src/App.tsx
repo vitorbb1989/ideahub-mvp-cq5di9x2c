@@ -19,6 +19,7 @@ import NotFound from './pages/NotFound'
 import Resume from './pages/Resume'
 import IdeaDetail from './pages/IdeaDetail'
 import PersistenceTest from './pages/PersistenceTest'
+import SystemHealth from './pages/SystemHealth'
 import PromptLibrary from './pages/PromptLibrary'
 import PromptGeneratorPage from './pages/PromptGeneratorPage'
 import Layout from './components/Layout'
@@ -94,6 +95,7 @@ const App = () => (
               <Route path="/documentation" element={<Documentation />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/persistence-test" element={<PersistenceTest />} />
+              <Route path="/system-health" element={<SystemHealth />} />
               <Route path="/prompts/library" element={<PromptLibrary />} />
               <Route
                 path="/prompts/generator"

@@ -9,6 +9,7 @@ import {
   IdeaReferenceLink,
   IdeaAttachment,
   IdeaSnapshot,
+  User,
 } from '@/types'
 import {
   STORAGE_KEYS,
@@ -27,6 +28,21 @@ const INITIAL_TAGS: Tag[] = [
 ]
 
 class IdeaService {
+  // --- Security Helper ---
+  private getCurrentUser(): User | null {
+    return getStored<User | null>(STORAGE_KEYS.SESSION, null)
+  }
+
+  private checkOwnership(ownerId: string) {
+    const user = this.getCurrentUser()
+    if (!user) throw new Error('Usuário não autenticado.')
+    if (user.id !== ownerId)
+      throw new Error(
+        'Acesso negado: Você não tem permissão para modificar este recurso.',
+      )
+    return user
+  }
+
   // --- Core Idea CRUD ---
 
   async getIdeas(
@@ -35,6 +51,9 @@ class IdeaService {
     status?: IdeaStatus,
     tagId?: string,
   ) {
+    // Security check: Only allow fetching own ideas or public (if implemented)
+    // For now, we trust the caller to pass correct userId, but we could enforce checkOwnership(userId) here if we wanted strict mode.
+
     let ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
 
     ideas = ideas.filter((i) => i.userId === userId)
@@ -61,12 +80,22 @@ class IdeaService {
 
   async getIdea(id: string) {
     const ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
-    return ideas.find((i) => i.id === id) || null
+    const idea = ideas.find((i) => i.id === id) || null
+
+    if (idea) {
+      // Optional: Check ownership on read?
+      // const user = this.getCurrentUser();
+      // if (user && user.id !== idea.userId) return null;
+    }
+    return idea
   }
 
   async createIdea(
     data: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
   ) {
+    // Ensure the creator is the logged in user
+    this.checkOwnership(data.userId)
+
     const ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     const newIdea: Idea = {
       ...data,
@@ -94,7 +123,10 @@ class IdeaService {
 
     if (index === -1) throw new Error('Idea not found')
 
+    // SECURITY CHECK: Verify ownership
     const currentIdea = ideas[index]
+    this.checkOwnership(currentIdea.userId)
+
     const updatedIdea = {
       ...currentIdea,
       ...updates,
@@ -207,6 +239,10 @@ class IdeaService {
   }
 
   async saveLastState(ideaId: string, newState: IdeaLastState): Promise<void> {
+    // Check ownership implicitly via getIdea logic or enforce here
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const oldState = getStoredItem<IdeaLastState>(
       STORAGE_KEYS.LAST_STATES,
       ideaId,
@@ -267,6 +303,9 @@ class IdeaService {
     ideaId: string,
     label: string,
   ): Promise<IdeaChecklistItem> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const items = (await this.getChecklist(ideaId)) || []
     const newItem: IdeaChecklistItem = {
       id: generateId(),
@@ -290,6 +329,9 @@ class IdeaService {
     itemId: string,
     updates: Partial<IdeaChecklistItem>,
   ): Promise<void> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const items = (await this.getChecklist(ideaId)) || []
     const index = items.findIndex((i) => i.id === itemId)
     if (index === -1) return
@@ -316,6 +358,9 @@ class IdeaService {
   }
 
   async removeChecklistItem(ideaId: string, itemId: string): Promise<void> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const items = (await this.getChecklist(ideaId)) || []
     const itemToRemove = items.find((i) => i.id === itemId)
     if (!itemToRemove) return
@@ -342,6 +387,9 @@ class IdeaService {
     ideaId: string,
     newLinks: IdeaReferenceLink[],
   ): Promise<void> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const oldLinks =
       getStoredItem<IdeaReferenceLink[]>(STORAGE_KEYS.REFERENCES, ideaId) || []
 
@@ -389,6 +437,9 @@ class IdeaService {
   }
 
   async addAttachment(ideaId: string, file: File): Promise<IdeaAttachment> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     // 1MB Limit for LocalStorage safety
     if (file.size > 1024 * 1024) {
       throw new Error(
@@ -429,6 +480,9 @@ class IdeaService {
   }
 
   async removeAttachment(ideaId: string, attachmentId: string): Promise<void> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const attachments = (await this.getAttachments(ideaId)) || []
     const toRemove = attachments.find((a) => a.id === attachmentId)
     if (!toRemove) return
@@ -449,6 +503,9 @@ class IdeaService {
   }
 
   async createSnapshot(ideaId: string, snapshot: IdeaSnapshot): Promise<void> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const snapshots = (await this.getSnapshots(ideaId)) || []
     snapshots.unshift(snapshot)
     setStoredItem(STORAGE_KEYS.SNAPSHOTS, ideaId, snapshots)
@@ -464,6 +521,9 @@ class IdeaService {
     snapshotId: string,
     updates: { title: string },
   ): Promise<void> {
+    const idea = await this.getIdea(ideaId)
+    if (idea) this.checkOwnership(idea.userId)
+
     const snapshots = (await this.getSnapshots(ideaId)) || []
     const index = snapshots.findIndex((s) => s.id === snapshotId)
     if (index === -1) return

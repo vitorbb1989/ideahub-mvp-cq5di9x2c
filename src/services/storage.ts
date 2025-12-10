@@ -1,4 +1,5 @@
 // Shared constants and helpers for LocalStorage services
+import { z } from 'zod'
 
 export const STORAGE_KEYS = {
   // From original api.ts
@@ -55,4 +56,36 @@ export function setStoredItem<T>(key: string, id: string, value: T) {
   const allData = JSON.parse(localStorage.getItem(key) || '{}')
   allData[id] = value
   localStorage.setItem(key, JSON.stringify(allData))
+}
+
+// Validation Helper
+export function validateStorageKey<T>(
+  key: string,
+  schema: z.ZodType<T>,
+): { valid: boolean; data: T | null; errors: string[] } {
+  try {
+    const stored = localStorage.getItem(key)
+    if (!stored) return { valid: true, data: null, errors: [] }
+
+    const parsed = JSON.parse(stored)
+    const result = schema.safeParse(parsed)
+
+    if (result.success) {
+      return { valid: true, data: result.data, errors: [] }
+    } else {
+      return {
+        valid: false,
+        data: null,
+        errors: result.error.errors.map(
+          (e) => `${e.path.join('.')}: ${e.message}`,
+        ),
+      }
+    }
+  } catch (e) {
+    return {
+      valid: false,
+      data: null,
+      errors: [e instanceof Error ? e.message : 'JSON Parse Error'],
+    }
+  }
 }

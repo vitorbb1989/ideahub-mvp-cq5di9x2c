@@ -13,7 +13,7 @@ import {
   PlayCircle,
   Wand2,
   BookTemplate,
-  PanelLeftClose,
+  Activity,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -40,6 +40,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
       icon: BookTemplate,
     },
     { to: '/documentation', label: 'Documentação', icon: FileText },
+    { to: '/system-health', label: 'System Health', icon: Activity },
     { to: '/profile', label: 'Perfil', icon: Settings },
   ]
 

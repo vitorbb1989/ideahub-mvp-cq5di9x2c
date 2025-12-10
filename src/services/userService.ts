@@ -2,10 +2,27 @@ import { User, UserActivity, UserActivityType } from '@/types'
 import { STORAGE_KEYS, getStored, setStored, generateId } from './storage'
 
 class UserService {
+  // --- Security Helper ---
+  private getCurrentUser(): User | null {
+    return getStored<User | null>(STORAGE_KEYS.SESSION, null)
+  }
+
+  private checkOwnership(userId: string) {
+    const currentUser = this.getCurrentUser()
+    if (!currentUser) throw new Error('Usuário não autenticado.')
+    if (currentUser.id !== userId)
+      throw new Error(
+        'Acesso negado: Você não tem permissão para modificar este usuário.',
+      )
+    return currentUser
+  }
+
   async updateProfile(
     userId: string,
     data: { name?: string; email?: string; avatar?: string | null },
   ): Promise<User> {
+    this.checkOwnership(userId)
+
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -81,6 +98,8 @@ class UserService {
     currentPass: string,
     newPass: string,
   ): Promise<void> {
+    this.checkOwnership(userId)
+
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -102,6 +121,9 @@ class UserService {
   }
 
   async getUserActivities(userId: string): Promise<UserActivity[]> {
+    // Only allow viewing own activities
+    this.checkOwnership(userId)
+
     const activities = getStored<UserActivity[]>(STORAGE_KEYS.ACTIVITIES, [])
     return activities
       .filter((a) => a.userId === userId)
