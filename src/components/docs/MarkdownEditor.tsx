@@ -1,7 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Button } from '@/components/ui/button'
+import {
+  Bold,
+  Italic,
+  List,
+  CheckSquare,
+  Table as TableIcon,
+  Code,
+  Link as LinkIcon,
+  Image as ImageIcon,
+  Heading1,
+  Heading2,
+  Quote,
+  Eye,
+  Edit3,
+} from 'lucide-react'
+import { parseMarkdown } from './markdownParser'
+import { cn } from '@/lib/utils'
 
 interface MarkdownEditorProps {
   content: string
@@ -14,75 +32,154 @@ export function MarkdownEditor({
   onChange,
   readOnly = false,
 }: MarkdownEditorProps) {
+  const [activeTab, setActiveTab] = useState('edit')
   const [previewHtml, setPreviewHtml] = useState('')
-
-  // Simple Markdown Parser (Regex Based)
-  const parseMarkdown = (text: string) => {
-    let html = text
-      // Headers
-      .replace(
-        /^# (.*$)/gim,
-        '<h1 class="text-3xl font-bold mt-4 mb-2">$1</h1>',
-      )
-      .replace(
-        /^## (.*$)/gim,
-        '<h2 class="text-2xl font-semibold mt-3 mb-2">$1</h2>',
-      )
-      .replace(
-        /^### (.*$)/gim,
-        '<h3 class="text-xl font-medium mt-2 mb-1">$1</h3>',
-      )
-      // Bold
-      .replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>')
-      .replace(/__(.*?)__/gim, '<strong>$1</strong>')
-      // Italic
-      .replace(/\*(.*?)\*/gim, '<em>$1</em>')
-      .replace(/_(.*?)_/gim, '<em>$1</em>')
-      // Lists
-      .replace(/^\s*-\s+(.*$)/gim, '<li class="ml-4 list-disc">$1</li>')
-      .replace(/^\s*\d+\.\s+(.*$)/gim, '<li class="ml-4 list-decimal">$1</li>')
-      // Blockquotes
-      .replace(
-        /^>\s+(.*$)/gim,
-        '<blockquote class="border-l-4 border-primary/50 pl-4 italic my-2">$1</blockquote>',
-      )
-      // Code blocks
-      .replace(
-        /```([\s\S]*?)```/gim,
-        '<pre class="bg-muted p-2 rounded-md my-2 overflow-x-auto"><code>$1</code></pre>',
-      )
-      .replace(
-        /`([^`]+)`/gim,
-        '<code class="bg-muted px-1 rounded text-sm">$1</code>',
-      )
-      // Links
-      .replace(
-        /\[([^\]]+)\]\(([^)]+)\)/gim,
-        '<a href="$2" class="text-primary hover:underline" target="_blank">$1</a>',
-      )
-      // Horizontal Rule
-      .replace(/^---$/gim, '<hr class="my-4 border-muted" />')
-      // Line breaks
-      .replace(/\n/gim, '<br />')
-
-    return html
-  }
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    setPreviewHtml(parseMarkdown(content))
-  }, [content])
+    if (activeTab === 'preview') {
+      setPreviewHtml(parseMarkdown(content))
+    }
+  }, [content, activeTab])
+
+  const insertText = (before: string, after = '', defaultText = '') => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = content.substring(start, end) || defaultText
+    const newText =
+      content.substring(0, start) +
+      before +
+      selectedText +
+      after +
+      content.substring(end)
+
+    onChange(newText)
+
+    // Restore focus and selection
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(
+        start + before.length,
+        start + before.length + selectedText.length,
+      )
+    }, 0)
+  }
+
+  const ToolbarButton = ({
+    icon: Icon,
+    onClick,
+    title,
+  }: {
+    icon: any
+    onClick: () => void
+    title: string
+  }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 w-8 p-0"
+      onClick={onClick}
+      title={title}
+      disabled={readOnly}
+    >
+      <Icon className="h-4 w-4" />
+    </Button>
+  )
 
   return (
-    <Tabs defaultValue="edit" className="flex flex-col h-full">
-      <div className="flex items-center justify-between border-b px-4 shrink-0">
-        <TabsList className="h-9 my-2">
-          <TabsTrigger value="edit">Editor</TabsTrigger>
-          <TabsTrigger value="preview">Visualizar</TabsTrigger>
+    <Tabs
+      value={activeTab}
+      onValueChange={setActiveTab}
+      className="flex flex-col h-full"
+    >
+      <div className="flex items-center justify-between border-b px-2 shrink-0 bg-muted/20">
+        <div className="flex items-center gap-1 overflow-x-auto py-2 no-scrollbar">
+          <ToolbarButton
+            icon={Bold}
+            onClick={() => insertText('**', '**', 'negrito')}
+            title="Negrito"
+          />
+          <ToolbarButton
+            icon={Italic}
+            onClick={() => insertText('*', '*', 'itálico')}
+            title="Itálico"
+          />
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarButton
+            icon={Heading1}
+            onClick={() => insertText('# ', '', 'Título')}
+            title="Título 1"
+          />
+          <ToolbarButton
+            icon={Heading2}
+            onClick={() => insertText('## ', '', 'Subtítulo')}
+            title="Título 2"
+          />
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarButton
+            icon={List}
+            onClick={() => insertText('- ', '', 'item')}
+            title="Lista"
+          />
+          <ToolbarButton
+            icon={CheckSquare}
+            onClick={() => insertText('- [ ] ', '', 'tarefa')}
+            title="Lista de Tarefas"
+          />
+          <ToolbarButton
+            icon={Quote}
+            onClick={() => insertText('> ', '', 'citação')}
+            title="Citação"
+          />
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarButton
+            icon={Code}
+            onClick={() => insertText('```javascript\n', '\n```', 'code')}
+            title="Bloco de Código"
+          />
+          <ToolbarButton
+            icon={TableIcon}
+            onClick={() =>
+              insertText(
+                '| Cabeçalho 1 | Cabeçalho 2 |\n|---|---|\n| Célula 1 | Célula 2 |',
+                '',
+                '',
+              )
+            }
+            title="Tabela"
+          />
+          <div className="w-px h-4 bg-border mx-1" />
+          <ToolbarButton
+            icon={LinkIcon}
+            onClick={() => insertText('[', '](url)', 'texto')}
+            title="Link"
+          />
+          <ToolbarButton
+            icon={ImageIcon}
+            onClick={() => insertText('![', '](url)', 'descrição')}
+            title="Imagem"
+          />
+        </div>
+
+        <TabsList className="h-8 ml-2">
+          <TabsTrigger value="edit" className="h-7 px-3 text-xs">
+            <Edit3 className="w-3 h-3 mr-1.5" /> Editor
+          </TabsTrigger>
+          <TabsTrigger value="preview" className="h-7 px-3 text-xs">
+            <Eye className="w-3 h-3 mr-1.5" /> Preview
+          </TabsTrigger>
         </TabsList>
       </div>
 
-      <TabsContent value="edit" className="flex-1 mt-0 p-0 min-h-0 relative">
+      <TabsContent
+        value="edit"
+        className="flex-1 mt-0 p-0 min-h-0 relative group"
+      >
         <Textarea
+          ref={textareaRef}
           value={content}
           onChange={(e) => onChange(e.target.value)}
           className="w-full h-full resize-none rounded-none border-0 focus-visible:ring-0 p-4 font-mono text-sm leading-relaxed"
