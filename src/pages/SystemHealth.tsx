@@ -2,256 +2,305 @@ import { useState, useEffect } from 'react'
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Activity,
-  ShieldCheck,
   Server,
-  Database,
-  CheckCircle2,
   AlertTriangle,
-  XCircle,
-  Play,
+  Zap,
+  Terminal,
+  Cpu,
   RefreshCw,
 } from 'lucide-react'
+import { monitorService, MetricPoint } from '@/lib/monitor'
+import { logger, LogEntry } from '@/lib/logger'
+import { cacheService } from '@/lib/cache'
 import {
-  diagnosticsService,
-  DiagnosticResult,
-} from '@/services/diagnosticsService'
-
-const StatusIcon = ({ status }: { status: string }) => {
-  if (status === 'passed')
-    return <CheckCircle2 className="w-5 h-5 text-green-500" />
-  if (status === 'warning')
-    return <AlertTriangle className="w-5 h-5 text-amber-500" />
-  if (status === 'failed') return <XCircle className="w-5 h-5 text-red-500" />
-  return <div className="w-5 h-5 rounded-full border-2 border-muted" />
-}
-
-const StatusBadge = ({ status }: { status: string }) => {
-  if (status === 'passed')
-    return (
-      <Badge className="bg-green-100 text-green-800 hover:bg-green-200 border-green-200">
-        Aprovado
-      </Badge>
-    )
-  if (status === 'warning')
-    return (
-      <Badge className="bg-amber-100 text-amber-800 hover:bg-amber-200 border-amber-200">
-        Atenção
-      </Badge>
-    )
-  if (status === 'failed')
-    return (
-      <Badge className="bg-red-100 text-red-800 hover:bg-red-200 border-red-200">
-        Falha
-      </Badge>
-    )
-  return <Badge variant="outline">Pendente</Badge>
-}
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from '@/components/ui/chart'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts'
 
 export default function SystemHealth() {
-  const [results, setResults] = useState<DiagnosticResult[]>([])
-  const [isRunning, setIsRunning] = useState(false)
-  const [progress, setProgress] = useState(0)
-
-  const runDiagnostics = async () => {
-    setIsRunning(true)
-    setProgress(10)
-    setResults([])
-
-    // Simulate steps for UX
-    setTimeout(() => setProgress(30), 500)
-    setTimeout(() => setProgress(60), 1000)
-
-    try {
-      const data = await diagnosticsService.runAll()
-      setTimeout(() => {
-        setResults(data)
-        setProgress(100)
-        setIsRunning(false)
-      }, 1500)
-    } catch (e) {
-      console.error(e)
-      setIsRunning(false)
-    }
-  }
+  const [metrics, setMetrics] = useState(monitorService.getMetrics())
+  const [logs, setLogs] = useState<LogEntry[]>([])
+  const [cacheStats, setCacheStats] = useState(cacheService.getStats())
+  const [activeTab, setActiveTab] = useState<'monitor' | 'logs'>('monitor')
 
   useEffect(() => {
-    // Auto-run on mount
-    runDiagnostics()
+    // Initial fetch
+    setLogs(logger.getLogs())
+
+    // Subscriptions
+    const unsubMetrics = monitorService.subscribe(() => {
+      setMetrics({ ...monitorService.getMetrics() })
+    })
+
+    const unsubLogs = logger.subscribe((newLogs) => {
+      setLogs([...newLogs])
+    })
+
+    // Interval for Cache stats
+    const interval = setInterval(() => {
+      setCacheStats(cacheService.getStats())
+    }, 2000)
+
+    return () => {
+      unsubMetrics()
+      unsubLogs()
+      clearInterval(interval)
+    }
   }, [])
 
-  const getResult = (category: string) =>
-    results.find((r) => r.category === category)
+  const chartConfig = {
+    latency: {
+      label: 'Latency (ms)',
+      color: 'hsl(var(--chart-1))',
+    },
+    requests: {
+      label: 'Requests',
+      color: 'hsl(var(--chart-2))',
+    },
+  }
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-10">
+    <div className="space-y-6 max-w-6xl mx-auto pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
           <h2 className="text-2xl font-bold tracking-tight">System Health</h2>
           <p className="text-muted-foreground">
-            Painel de diagnóstico e validação do backend (serviços).
+            Painel de monitoramento em tempo real e infraestrutura simulada.
           </p>
         </div>
-        <Button onClick={runDiagnostics} disabled={isRunning} className="gap-2">
-          {isRunning ? (
-            <RefreshCw className="w-4 h-4 animate-spin" />
-          ) : (
-            <Play className="w-4 h-4" />
-          )}
-          Executar Diagnóstico
-        </Button>
+        <div className="flex gap-2 bg-muted p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab('monitor')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+              activeTab === 'monitor'
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Monitoramento
+          </button>
+          <button
+            onClick={() => setActiveTab('logs')}
+            className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${
+              activeTab === 'logs'
+                ? 'bg-background shadow-sm text-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Logs do Sistema
+          </button>
+        </div>
       </div>
 
-      {isRunning && <Progress value={progress} className="h-1" />}
+      {activeTab === 'monitor' ? (
+        <div className="space-y-6 animate-fade-in">
+          {/* Top Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">CPU Usage</CardTitle>
+                <Cpu className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {metrics.system.cpu.toFixed(1)}%
+                </div>
+                <p className="text-xs text-muted-foreground">Simulated load</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Memory</CardTitle>
+                <Server className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {metrics.system.memory.toFixed(1)}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Simulated utilization
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Cache Hit</CardTitle>
+                <Zap className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {(cacheStats.hitRatio * 100).toFixed(0)}%
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {cacheStats.hits} hits / {cacheStats.misses} misses
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Errors (1m)
+                </CardTitle>
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {metrics.errors.length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Last 100 requests
+                </p>
+              </CardContent>
+            </Card>
+          </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Architecture */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-medium">
-              Arquitetura Backend
-            </CardTitle>
-            <Server className="h-4 w-4 text-muted-foreground" />
+          {/* Charts */}
+          <div className="grid md:grid-cols-2 gap-6">
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle>API Latency</CardTitle>
+                <CardDescription>Response time in milliseconds</CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-[300px]">
+                <ChartContainer config={chartConfig}>
+                  <LineChart data={metrics.latency}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="time"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tickFormatter={() => ''}
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      tickFormatter={(value) => `${value}ms`}
+                    />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent hideLabel />}
+                    />
+                    <Line
+                      dataKey="value"
+                      type="monotone"
+                      stroke="hsl(var(--chart-1))"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle>Requests Throughput</CardTitle>
+                <CardDescription>
+                  Requests per second event stream
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1 min-h-[300px]">
+                <ChartContainer config={chartConfig}>
+                  <LineChart data={metrics.requests}>
+                    <CartesianGrid vertical={false} strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="time"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      tickFormatter={() => ''}
+                    />
+                    <YAxis tickLine={false} axisLine={false} />
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent hideLabel />}
+                    />
+                    <Line
+                      dataKey="value"
+                      type="step"
+                      stroke="hsl(var(--chart-2))"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  </LineChart>
+                </ChartContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      ) : (
+        <Card className="flex-1 animate-fade-in">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2">
+                <Terminal className="w-5 h-5" />
+                System Logs
+              </CardTitle>
+              <CardDescription>
+                Live stream of backend events, errors, and warnings.
+              </CardDescription>
+            </div>
+            <button
+              onClick={() => logger.clear()}
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+            >
+              <RefreshCw className="w-3 h-3" /> Clear
+            </button>
           </CardHeader>
           <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-bold">Mock Service</span>
-              {getResult('architecture') && (
-                <StatusBadge status={getResult('architecture')!.status} />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Verificação da estrutura de serviços e persistência.
-            </p>
-            {getResult('architecture')?.details && (
-              <div className="space-y-2 text-sm bg-muted/20 p-3 rounded-md border">
-                {Object.entries(getResult('architecture')!.details).map(
-                  ([k, v]) => (
-                    <div key={k} className="flex justify-between">
-                      <span className="capitalize text-muted-foreground">
-                        {k}:
+            <ScrollArea className="h-[600px] w-full rounded-md border bg-zinc-950 p-4 font-mono text-sm">
+              {logs.length === 0 ? (
+                <div className="text-zinc-500 italic">No logs available...</div>
+              ) : (
+                <div className="space-y-1">
+                  {logs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="flex gap-2 hover:bg-white/5 p-0.5 rounded"
+                    >
+                      <span className="text-zinc-500 shrink-0">
+                        [{log.timestamp.split('T')[1].split('.')[0]}]
                       </span>
-                      <span className="font-mono text-xs">
-                        {Array.isArray(v) ? v.join(', ') : String(v)}
+                      <span
+                        className={`font-bold shrink-0 w-14 ${
+                          log.level === 'ERROR'
+                            ? 'text-red-500'
+                            : log.level === 'WARN'
+                              ? 'text-yellow-500'
+                              : log.level === 'INFO'
+                                ? 'text-blue-400'
+                                : 'text-zinc-400'
+                        }`}
+                      >
+                        {log.level}
                       </span>
+                      <span className="text-zinc-300 break-all">
+                        {log.message}
+                      </span>
+                      {log.context && (
+                        <span className="text-zinc-600 hidden md:inline-block">
+                          {JSON.stringify(log.context)}
+                        </span>
+                      )}
                     </div>
-                  ),
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Security */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-medium">
-              Auditoria de Segurança
-            </CardTitle>
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-bold">Access Control</span>
-              {getResult('security') && (
-                <StatusBadge status={getResult('security')!.status} />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              Verificação de criptografia e permissões de acesso.
-            </p>
-            {getResult('security')?.details && (
-              <ul className="space-y-1 text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">
-                {(getResult('security')!.details as string[]).map((msg, i) => (
-                  <li key={i} className="flex gap-2">
-                    • {msg}
-                  </li>
-                ))}
-                {(getResult('security')!.details as string[]).length === 0 && (
-                  <li className="text-green-600">Nenhum problema detectado.</li>
-                )}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Performance */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-medium">Performance</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-bold">API Response</span>
-              {getResult('performance') && (
-                <StatusBadge status={getResult('performance')!.status} />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              {getResult('performance')?.message || 'Aguardando teste...'}
-            </p>
-            {getResult('performance')?.details && (
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="bg-muted/20 p-2 rounded border text-center">
-                  <div className="text-xs text-muted-foreground">Read Time</div>
-                  <div className="font-bold">
-                    {getResult('performance')!.details.readTimeMs}ms
-                  </div>
-                </div>
-                <div className="bg-muted/20 p-2 rounded border text-center">
-                  <div className="text-xs text-muted-foreground">Data Size</div>
-                  <div className="font-bold">
-                    {(
-                      getResult('performance')!.details.dataSizeBytes / 1024
-                    ).toFixed(2)}{' '}
-                    KB
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Data Integrity */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-base font-medium">
-              Integridade de Dados
-            </CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-bold">Schema Check</span>
-              {getResult('integrity') && (
-                <StatusBadge status={getResult('integrity')!.status} />
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground mb-4">
-              {getResult('integrity')?.message || 'Verificando integridade...'}
-            </p>
-            {getResult('integrity')?.details &&
-              (getResult('integrity')!.details as string[]).length > 0 && (
-                <div className="max-h-24 overflow-y-auto text-xs text-red-500 bg-red-50 p-2 rounded border border-red-100">
-                  {(getResult('integrity')!.details as string[]).map(
-                    (msg, i) => (
-                      <div key={i}>• {msg}</div>
-                    ),
-                  )}
+                  ))}
                 </div>
               )}
+            </ScrollArea>
           </CardContent>
         </Card>
-      </div>
+      )}
     </div>
   )
 }

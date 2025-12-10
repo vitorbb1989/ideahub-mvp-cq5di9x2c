@@ -14,6 +14,7 @@ import {
   Wand2,
   BookTemplate,
   Activity,
+  Zap,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/context/AuthContext'
@@ -41,6 +42,7 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
     },
     { to: '/documentation', label: 'Documentação', icon: FileText },
     { to: '/system-health', label: 'System Health', icon: Activity },
+    { to: '/load-test', label: 'Load Test', icon: Zap },
     { to: '/profile', label: 'Perfil', icon: Settings },
   ]
 

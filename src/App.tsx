@@ -22,6 +22,7 @@ import PersistenceTest from './pages/PersistenceTest'
 import SystemHealth from './pages/SystemHealth'
 import PromptLibrary from './pages/PromptLibrary'
 import PromptGeneratorPage from './pages/PromptGeneratorPage'
+import LoadTest from './pages/LoadTest'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { Loader2 } from 'lucide-react'
@@ -96,6 +97,7 @@ const App = () => (
               <Route path="/profile" element={<Profile />} />
               <Route path="/persistence-test" element={<PersistenceTest />} />
               <Route path="/system-health" element={<SystemHealth />} />
+              <Route path="/load-test" element={<LoadTest />} />
               <Route path="/prompts/library" element={<PromptLibrary />} />
               <Route
                 path="/prompts/generator"
