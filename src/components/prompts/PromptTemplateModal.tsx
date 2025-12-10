@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { PromptTemplate } from '@/types'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Plus, Hash } from 'lucide-react'
 
 const templateSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório'),
@@ -50,6 +50,9 @@ export function PromptTemplateModal({
     },
   })
 
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const content = form.watch('content')
+
   useEffect(() => {
     if (isOpen) {
       form.reset({
@@ -64,6 +67,61 @@ export function PromptTemplateModal({
     onClose()
   }
 
+  const getNumberedPlaceholders = (text: string): number[] => {
+    if (!text) return []
+    const regex = /\{\{(\d+)\}\}/g
+    const matches = [...text.matchAll(regex)]
+    const numbers = matches.map((m) => parseInt(m[1], 10))
+    // Return unique sorted numbers
+    return Array.from(new Set(numbers)).sort((a, b) => a - b)
+  }
+
+  const placeholders = getNumberedPlaceholders(content)
+
+  const handleInsertPlaceholder = () => {
+    const currentContent = form.getValues('content') || ''
+    const currentPlaceholders = getNumberedPlaceholders(currentContent)
+
+    // Calculate next number based on the highest existing number
+    const nextNumber =
+      currentPlaceholders.length > 0 ? Math.max(...currentPlaceholders) + 1 : 1
+
+    const placeholder = `{{${nextNumber}}`
+    const textarea = textareaRef.current
+
+    if (textarea) {
+      const start = textarea.selectionStart
+      const end = textarea.selectionEnd
+
+      const newValue =
+        currentContent.substring(0, start) +
+        placeholder +
+        currentContent.substring(end)
+
+      form.setValue('content', newValue, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+
+      // Restore focus and move cursor after the inserted placeholder
+      setTimeout(() => {
+        textarea.focus()
+        textarea.setSelectionRange(
+          start + placeholder.length,
+          start + placeholder.length,
+        )
+      }, 0)
+    } else {
+      const newValue = currentContent + placeholder
+      form.setValue('content', newValue, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: true,
+      })
+    }
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
@@ -72,8 +130,9 @@ export function PromptTemplateModal({
             {template ? 'Editar Template' : 'Novo Template de Prompt'}
           </DialogTitle>
           <DialogDescription>
-            Defina placeholders usando chaves duplas, ex: {'{{tópico}}'} ou{' '}
-            {'{{palavra_chave}}'}.
+            Defina placeholders sequenciais (ex: {'{{1}}'}) para preenchimento
+            automático ou use chaves duplas para variáveis nomeadas (ex:{' '}
+            {'{{tópico}}'}).
           </DialogDescription>
         </DialogHeader>
 
@@ -97,14 +156,50 @@ export function PromptTemplateModal({
               name="content"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Conteúdo do Template</FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel>Conteúdo do Template</FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={handleInsertPlaceholder}
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Inserir Placeholder
+                    </Button>
+                  </div>
                   <FormControl>
                     <Textarea
-                      placeholder="Ex: Crie 5 ideias de marketing sobre {{tópico}} para o público {{público}}..."
+                      placeholder="Ex: Crie 5 ideias sobre {{1}} para o público {{2}}..."
                       className="min-h-[200px] font-mono text-sm"
                       {...field}
+                      ref={(e) => {
+                        field.ref(e)
+                        textareaRef.current = e
+                      }}
                     />
                   </FormControl>
+
+                  {/* Dynamic Placeholder Summary */}
+                  <div className="min-h-[20px]">
+                    {placeholders.length > 0 && (
+                      <div className="rounded-md bg-muted/50 p-3 text-sm animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="flex items-center gap-2 font-medium text-foreground/80 mb-1">
+                          <Hash className="w-4 h-4" />
+                          <span>
+                            Total: {placeholders.length} campos a serem
+                            preenchidos
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground pl-6 break-all">
+                          Identificados:{' '}
+                          {placeholders.map((p) => `{{${p}}}`).join(', ')}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
                   <FormMessage />
                 </FormItem>
               )}
