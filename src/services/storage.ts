@@ -16,9 +16,6 @@ export const STORAGE_KEYS = {
   SNAPSHOTS: 'ideahub_snapshots',
 }
 
-export const delay = (ms: number) =>
-  new Promise((resolve) => setTimeout(resolve, ms))
-
 export const generateId = () => Math.random().toString(36).substring(2, 9)
 
 export function getStored<T>(key: string, initial: T): T {

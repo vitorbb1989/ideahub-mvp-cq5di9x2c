@@ -1,18 +1,11 @@
 import { User, UserActivity, UserActivityType } from '@/types'
-import {
-  STORAGE_KEYS,
-  getStored,
-  setStored,
-  delay,
-  generateId,
-} from './storage'
+import { STORAGE_KEYS, getStored, setStored, generateId } from './storage'
 
 class UserService {
   async updateProfile(
     userId: string,
     data: { name?: string; email?: string; avatar?: string | null },
   ): Promise<User> {
-    await delay(500)
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -88,7 +81,6 @@ class UserService {
     currentPass: string,
     newPass: string,
   ): Promise<void> {
-    await delay(500)
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -110,7 +102,6 @@ class UserService {
   }
 
   async getUserActivities(userId: string): Promise<UserActivity[]> {
-    await delay(300)
     const activities = getStored<UserActivity[]>(STORAGE_KEYS.ACTIVITIES, [])
     return activities
       .filter((a) => a.userId === userId)

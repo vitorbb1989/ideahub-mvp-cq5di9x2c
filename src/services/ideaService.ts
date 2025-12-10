@@ -15,7 +15,6 @@ import {
   setStored,
   getStoredItem,
   setStoredItem,
-  delay,
   generateId,
 } from './storage'
 
@@ -35,7 +34,6 @@ class IdeaService {
     status?: IdeaStatus,
     tagId?: string,
   ) {
-    await delay(500)
     let ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
 
     ideas = ideas.filter((i) => i.userId === userId)
@@ -61,7 +59,6 @@ class IdeaService {
   }
 
   async getIdea(id: string) {
-    await delay(200)
     const ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     return ideas.find((i) => i.id === id) || null
   }
@@ -69,7 +66,6 @@ class IdeaService {
   async createIdea(
     data: Omit<Idea, 'id' | 'createdAt' | 'updatedAt' | 'priorityScore'>,
   ) {
-    await delay(500)
     const ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     const newIdea: Idea = {
       ...data,
@@ -92,7 +88,6 @@ class IdeaService {
   }
 
   async updateIdea(id: string, updates: Partial<Idea>) {
-    await delay(500)
     const ideas = getStored<Idea[]>(STORAGE_KEYS.IDEAS, [])
     const index = ideas.findIndex((i) => i.id === id)
 
@@ -149,12 +144,10 @@ class IdeaService {
   // --- Tags ---
 
   async getTags() {
-    await delay(300)
     return getStored<Tag[]>(STORAGE_KEYS.TAGS, INITIAL_TAGS)
   }
 
   async createTag(name: string) {
-    await delay(300)
     const tags = getStored<Tag[]>(STORAGE_KEYS.TAGS, INITIAL_TAGS)
     const existing = tags.find(
       (t) => t.name.toLowerCase() === name.toLowerCase(),
@@ -170,7 +163,6 @@ class IdeaService {
   // --- Timeline ---
 
   async getTimelineEvents(ideaId: string): Promise<IdeaTimelineEvent[]> {
-    await delay(300)
     const allEvents = getStored<Record<string, IdeaTimelineEvent[]>>(
       STORAGE_KEYS.TIMELINE_EVENTS,
       {},
@@ -210,12 +202,10 @@ class IdeaService {
   // --- Last State ---
 
   async getLastState(ideaId: string): Promise<IdeaLastState | null> {
-    await delay(200)
     return getStoredItem<IdeaLastState>(STORAGE_KEYS.LAST_STATES, ideaId)
   }
 
   async saveLastState(ideaId: string, newState: IdeaLastState): Promise<void> {
-    await delay(200)
     const oldState = getStoredItem<IdeaLastState>(
       STORAGE_KEYS.LAST_STATES,
       ideaId,
@@ -267,7 +257,6 @@ class IdeaService {
   // --- Checklist Operations ---
 
   async getChecklist(ideaId: string): Promise<IdeaChecklistItem[]> {
-    await delay(200)
     return (
       getStoredItem<IdeaChecklistItem[]>(STORAGE_KEYS.CHECKLISTS, ideaId) || []
     )
@@ -277,7 +266,6 @@ class IdeaService {
     ideaId: string,
     label: string,
   ): Promise<IdeaChecklistItem> {
-    await delay(200)
     const items = (await this.getChecklist(ideaId)) || []
     const newItem: IdeaChecklistItem = {
       id: generateId(),
@@ -301,7 +289,6 @@ class IdeaService {
     itemId: string,
     updates: Partial<IdeaChecklistItem>,
   ): Promise<void> {
-    await delay(200)
     const items = (await this.getChecklist(ideaId)) || []
     const index = items.findIndex((i) => i.id === itemId)
     if (index === -1) return
@@ -328,7 +315,6 @@ class IdeaService {
   }
 
   async removeChecklistItem(ideaId: string, itemId: string): Promise<void> {
-    await delay(200)
     const items = (await this.getChecklist(ideaId)) || []
     const itemToRemove = items.find((i) => i.id === itemId)
     if (!itemToRemove) return
@@ -346,7 +332,6 @@ class IdeaService {
   // --- References Operations ---
 
   async getReferences(ideaId: string): Promise<IdeaReferenceLink[]> {
-    await delay(200)
     return (
       getStoredItem<IdeaReferenceLink[]>(STORAGE_KEYS.REFERENCES, ideaId) || []
     )
@@ -356,7 +341,6 @@ class IdeaService {
     ideaId: string,
     newLinks: IdeaReferenceLink[],
   ): Promise<void> {
-    await delay(200)
     const oldLinks =
       getStoredItem<IdeaReferenceLink[]>(STORAGE_KEYS.REFERENCES, ideaId) || []
 
@@ -398,12 +382,10 @@ class IdeaService {
   // --- Snapshot Operations ---
 
   async getSnapshots(ideaId: string): Promise<IdeaSnapshot[]> {
-    await delay(200)
     return getStoredItem<IdeaSnapshot[]>(STORAGE_KEYS.SNAPSHOTS, ideaId) || []
   }
 
   async createSnapshot(ideaId: string, snapshot: IdeaSnapshot): Promise<void> {
-    await delay(200)
     const snapshots = (await this.getSnapshots(ideaId)) || []
     snapshots.unshift(snapshot)
     setStoredItem(STORAGE_KEYS.SNAPSHOTS, ideaId, snapshots)
@@ -419,7 +401,6 @@ class IdeaService {
     snapshotId: string,
     updates: { title: string },
   ): Promise<void> {
-    await delay(200)
     const snapshots = (await this.getSnapshots(ideaId)) || []
     const index = snapshots.findIndex((s) => s.id === snapshotId)
     if (index === -1) return

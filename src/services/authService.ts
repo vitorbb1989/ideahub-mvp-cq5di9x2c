@@ -1,15 +1,8 @@
 import { User } from '@/types'
-import {
-  STORAGE_KEYS,
-  getStored,
-  setStored,
-  delay,
-  generateId,
-} from './storage'
+import { STORAGE_KEYS, getStored, setStored, generateId } from './storage'
 
 class AuthService {
   async login(email: string, password: string): Promise<User> {
-    await delay(500)
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -31,7 +24,6 @@ class AuthService {
   }
 
   async register(name: string, email: string, password: string): Promise<User> {
-    await delay(500)
     const users = getStored<(User & { password: string; createdAt: string })[]>(
       STORAGE_KEYS.USERS,
       [],
@@ -62,12 +54,10 @@ class AuthService {
   }
 
   async logout() {
-    await delay(200)
     localStorage.removeItem(STORAGE_KEYS.SESSION)
   }
 
   async getCurrentUser(): Promise<User | null> {
-    await delay(200)
     return getStored<User | null>(STORAGE_KEYS.SESSION, null)
   }
 }
