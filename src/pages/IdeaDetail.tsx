@@ -116,19 +116,50 @@ export default function IdeaDetail() {
   }
 
   const handleSaveState = async () => {
-    if (!id || !pendingLastState) return
+    if (!id) return
+
+    const promises = []
+
+    // Save Last State if present
+    if (pendingLastState) {
+      promises.push(ideaStateApi.saveLastState(id, pendingLastState))
+    }
+
+    // Explicitly save checklist and references again to ensure consistency
+    promises.push(ideaStateApi.saveChecklist(id, pendingChecklist))
+    promises.push(ideaStateApi.saveReferences(id, pendingReferences))
+
+    // Detect changes for Events
+    const hasLastStateChanged =
+      JSON.stringify(lastState) !== JSON.stringify(pendingLastState)
+    const hasChecklistChanged =
+      JSON.stringify(checklist) !== JSON.stringify(pendingChecklist)
+    const hasReferencesChanged =
+      JSON.stringify(references) !== JSON.stringify(pendingReferences)
+
+    if (hasLastStateChanged) {
+      promises.push(ideaStateApi.logEvent(id, 'last_state_updated'))
+    }
+
+    if (hasChecklistChanged) {
+      promises.push(ideaStateApi.logEvent(id, 'checklist_updated'))
+    }
+
+    if (hasReferencesChanged) {
+      promises.push(ideaStateApi.logEvent(id, 'references_updated'))
+    }
 
     try {
-      await Promise.all([
-        ideaStateApi.saveLastState(id, pendingLastState),
-        ideaStateApi.saveChecklist(id, pendingChecklist),
-        ideaStateApi.saveReferences(id, pendingReferences),
-        ideaStateApi.logEvent(id, 'last_state_updated'),
-      ])
+      await Promise.all(promises)
 
       // Refresh events
       const ev = await ideaStateApi.getEvents(id)
       setEvents(ev)
+
+      // Update baselines
+      setLastState(pendingLastState)
+      setChecklist(pendingChecklist)
+      setReferences(pendingReferences)
 
       toast({
         title: 'Progresso salvo!',
@@ -249,13 +280,23 @@ export default function IdeaDetail() {
             {/* Checklist */}
             <IdeaChecklist
               initialItems={checklist}
-              onChange={setPendingChecklist}
+              onChange={(items) => {
+                setPendingChecklist(items)
+                if (id) {
+                  ideaStateApi.saveChecklist(id, items).catch(console.error)
+                }
+              }}
             />
 
             {/* References */}
             <IdeaLinkedDocs
               initialLinks={references}
-              onChange={setPendingReferences}
+              onChange={(links) => {
+                setPendingReferences(links)
+                if (id) {
+                  ideaStateApi.saveReferences(id, links).catch(console.error)
+                }
+              }}
             />
           </div>
         </div>
