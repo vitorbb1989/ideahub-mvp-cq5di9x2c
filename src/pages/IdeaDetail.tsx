@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useIdeas } from '@/context/IdeaContext'
 import { ideaStateApi } from '@/lib/ideaStateApi'
@@ -59,11 +59,11 @@ export default function IdeaDetail() {
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false)
   const [snapshotTitle, setSnapshotTitle] = useState('')
 
-  const fetchEvents = async () => {
+  const fetchEvents = useCallback(async () => {
     if (!id) return
     const ev = await ideaStateApi.getEvents(id)
     setEvents(ev)
-  }
+  }, [id])
 
   useEffect(() => {
     const loadState = async () => {
@@ -99,7 +99,7 @@ export default function IdeaDetail() {
     if (!id) return
     const interval = setInterval(fetchEvents, 2000)
     return () => clearInterval(interval)
-  }, [id])
+  }, [id, fetchEvents])
 
   // Scroll to section logic
   useEffect(() => {
@@ -276,8 +276,7 @@ export default function IdeaDetail() {
       await Promise.all(promises)
 
       // Refresh events
-      const ev = await ideaStateApi.getEvents(id)
-      setEvents(ev)
+      await fetchEvents()
 
       // Update baselines
       setLastState(pendingLastState)
@@ -320,8 +319,7 @@ export default function IdeaDetail() {
       })
 
       // Refresh events
-      const ev = await ideaStateApi.getEvents(id)
-      setEvents(ev)
+      await fetchEvents()
 
       toast({
         title: 'Snapshot criado!',
