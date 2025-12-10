@@ -104,3 +104,14 @@
     margin: 0 !important;
   }
 }
+
+@layer utilities {
+  .bg-grid-pattern {
+    background-image: radial-gradient(
+      hsl(var(--muted-foreground)) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+    opacity: 0.1;
+  }
+}

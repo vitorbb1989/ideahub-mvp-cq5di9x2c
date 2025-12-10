@@ -31,8 +31,13 @@ const ProtectedRoute = () => {
 
   if (isLoading) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground animate-pulse">
+            Carregando...
+          </p>
+        </div>
       </div>
     )
   }
@@ -49,7 +54,11 @@ const PublicRoute = () => {
   const { user, isLoading } = useAuth()
 
   if (isLoading) {
-    return null
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-background">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    )
   }
 
   if (user) {

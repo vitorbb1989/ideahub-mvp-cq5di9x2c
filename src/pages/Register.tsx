@@ -22,7 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form'
-import { Lightbulb, Loader2 } from 'lucide-react'
+import { Lightbulb, Loader2, ArrowRight } from 'lucide-react'
 
 const registerSchema = z
   .object({
@@ -64,23 +64,34 @@ export default function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/40 p-4">
-      <div className="w-full max-w-md space-y-6">
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary">
-            <Lightbulb className="w-6 h-6 fill-current" />
+    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden p-4">
+      {/* Background Pattern */}
+      <div className="absolute inset-0 bg-grid-pattern pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-tl from-primary/5 via-background to-background pointer-events-none" />
+
+      <div className="w-full max-w-md relative z-10 space-y-8 animate-fade-in-up">
+        <div className="flex flex-col items-center gap-3">
+          <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/20">
+            <Lightbulb className="w-7 h-7 fill-current" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">IdeaHub MVP</h1>
+          <div className="text-center space-y-1">
+            <h1 className="text-2xl font-bold tracking-tight">
+              Crie sua conta
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Comece a transformar suas ideias em realidade hoje.
+            </p>
+          </div>
         </div>
 
-        <Card>
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl">Criar conta</CardTitle>
+        <Card className="border-0 shadow-xl bg-card/80 backdrop-blur-sm ring-1 ring-border/50">
+          <CardHeader className="space-y-1 pb-2">
+            <CardTitle className="text-xl">Dados de cadastro</CardTitle>
             <CardDescription>
-              Preencha os dados abaixo para começar
+              Preencha o formulário abaixo para criar seu acesso
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-4">
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
@@ -91,9 +102,13 @@ export default function Register() {
                   name="name"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Nome</FormLabel>
+                      <FormLabel>Nome completo</FormLabel>
                       <FormControl>
-                        <Input placeholder="Seu nome" {...field} />
+                        <Input
+                          placeholder="Ex: João Silva"
+                          className="h-11"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -107,8 +122,10 @@ export default function Register() {
                       <FormLabel>E-mail</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="seu@email.com"
+                          placeholder="nome@exemplo.com"
                           type="email"
+                          autoComplete="email"
+                          className="h-11"
                           {...field}
                         />
                       </FormControl>
@@ -116,53 +133,70 @@ export default function Register() {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Senha</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="******"
-                          type="password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="confirmPassword"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Confirmar Senha</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="******"
-                          type="password"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button className="w-full" type="submit" disabled={isLoading}>
-                  {isLoading && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Senha</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="••••••••"
+                            type="password"
+                            autoComplete="new-password"
+                            className="h-11"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirmar</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="••••••••"
+                            type="password"
+                            autoComplete="new-password"
+                            className="h-11"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <Button
+                  className="w-full h-11 mt-2 font-semibold"
+                  type="submit"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      Criar conta
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </>
                   )}
-                  Criar conta
                 </Button>
               </form>
             </Form>
           </CardContent>
-          <CardFooter className="flex justify-center">
+          <CardFooter className="justify-center border-t bg-muted/30 py-4">
             <p className="text-sm text-muted-foreground">
               Já tem uma conta?{' '}
-              <Link to="/login" className="text-primary hover:underline">
+              <Link
+                to="/login"
+                className="font-medium text-primary hover:underline hover:text-primary/80 transition-colors"
+              >
                 Fazer login
               </Link>
             </p>

@@ -24,17 +24,17 @@ export default function Layout() {
   return (
     <IdeaProvider>
       <PromptProvider>
-        <div className="flex min-h-screen bg-background text-foreground">
+        <div className="flex h-screen bg-background text-foreground overflow-hidden">
           <Sidebar
             isOpen={isSidebarOpen}
             onClose={() => setIsSidebarOpen(false)}
           />
 
-          <div className="flex flex-col flex-1 min-w-0">
+          <div className="flex flex-col flex-1 min-w-0 h-full relative">
             <Header title={title} onMenuClick={() => setIsSidebarOpen(true)} />
 
-            <main className="flex-1 overflow-auto">
-              <div className="container p-4 mx-auto max-w-7xl md:p-8 animate-fade-in h-full">
+            <main className="flex-1 overflow-y-auto overflow-x-hidden bg-muted/10 scroll-smooth">
+              <div className="container mx-auto max-w-7xl p-4 md:p-6 lg:p-8 animate-fade-in min-h-full">
                 <Outlet />
               </div>
             </main>
