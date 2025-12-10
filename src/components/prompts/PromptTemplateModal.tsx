@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { PromptTemplate } from '@/types'
 import { Loader2, Plus, Hash } from 'lucide-react'
+import { extractPlaceholders } from '@/lib/utils'
 
 const templateSchema = z.object({
   title: z.string().min(1, 'O título é obrigatório'),
@@ -67,26 +68,23 @@ export function PromptTemplateModal({
     onClose()
   }
 
-  const getNumberedPlaceholders = (text: string): number[] => {
-    if (!text) return []
-    const regex = /\{\{(\d+)\}\}/g
+  const placeholders = extractPlaceholders(content)
+
+  const getNextPlaceholderNumber = (text: string): number => {
+    if (!text) return 1
+    const regex = /\{\{\s*(\d+)\s*\}\}/g
     const matches = [...text.matchAll(regex)]
     const numbers = matches.map((m) => parseInt(m[1], 10))
-    // Return unique sorted numbers
-    return Array.from(new Set(numbers)).sort((a, b) => a - b)
-  }
 
-  const placeholders = getNumberedPlaceholders(content)
+    if (numbers.length === 0) return 1
+    return Math.max(...numbers) + 1
+  }
 
   const handleInsertPlaceholder = () => {
     const currentContent = form.getValues('content') || ''
-    const currentPlaceholders = getNumberedPlaceholders(currentContent)
+    const nextNumber = getNextPlaceholderNumber(currentContent)
 
-    // Calculate next number based on the highest existing number
-    const nextNumber =
-      currentPlaceholders.length > 0 ? Math.max(...currentPlaceholders) + 1 : 1
-
-    const placeholder = `{{${nextNumber}}`
+    const placeholder = `{{${nextNumber}}}`
     const textarea = textareaRef.current
 
     if (textarea) {
@@ -188,12 +186,11 @@ export function PromptTemplateModal({
                         <div className="flex items-center gap-2 font-medium text-foreground/80 mb-1">
                           <Hash className="w-4 h-4" />
                           <span>
-                            Total: {placeholders.length} campos a serem
-                            preenchidos
+                            Total: {placeholders.length} campos identificados
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground pl-6 break-all">
-                          Identificados:{' '}
+                          Variáveis:{' '}
                           {placeholders.map((p) => `{{${p}}}`).join(', ')}
                         </p>
                       </div>

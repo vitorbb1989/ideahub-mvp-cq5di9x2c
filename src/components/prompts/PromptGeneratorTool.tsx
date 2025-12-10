@@ -22,6 +22,7 @@ import { Separator } from '@/components/ui/separator'
 import { Sparkles, Copy, RefreshCw, AlertCircle } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { extractPlaceholders, escapeRegExp } from '@/lib/utils'
 
 interface PromptGeneratorToolProps {
   templates: PromptTemplate[]
@@ -41,12 +42,7 @@ export function PromptGeneratorTool({ templates }: PromptGeneratorToolProps) {
 
   const placeholders = useMemo(() => {
     if (!selectedTemplate) return []
-    const matches = selectedTemplate.content.matchAll(/\{\{([^}]+)\}\}/g)
-    const keys = new Set<string>()
-    for (const match of matches) {
-      keys.add(match[1].trim())
-    }
-    return Array.from(keys)
+    return extractPlaceholders(selectedTemplate.content)
   }, [selectedTemplate])
 
   // Reset inputs when template changes
@@ -68,14 +64,17 @@ export function PromptGeneratorTool({ templates }: PromptGeneratorToolProps) {
     const missing = placeholders.filter((key) => !inputs[key]?.trim())
     if (missing.length > 0) {
       setError(
-        `Por favor, preencha os campos obrigatórios: ${missing.join(', ')}`,
+        `Por favor, preencha os campos obrigatórios: ${missing
+          .map((m) => `{{${m}}}`)
+          .join(', ')}`,
       )
       return
     }
 
     let result = selectedTemplate.content
     placeholders.forEach((key) => {
-      const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g')
+      // Create regex for {{ key }} allowing spaces
+      const regex = new RegExp(`\\{\\{\\s*${escapeRegExp(key)}\\s*\\}\\}`, 'g')
       result = result.replace(regex, inputs[key])
     })
 
@@ -144,11 +143,11 @@ export function PromptGeneratorTool({ templates }: PromptGeneratorToolProps) {
                 ) : (
                   placeholders.map((placeholder) => (
                     <div key={placeholder} className="space-y-1.5">
-                      <Label className="capitalize">
-                        {placeholder.replace(/_/g, ' ')}
+                      <Label className="break-all">
+                        Preencher {`{{${placeholder}}}`}
                       </Label>
                       <Input
-                        placeholder={`Valor para ${placeholder}...`}
+                        placeholder={`Digite o valor...`}
                         value={inputs[placeholder] || ''}
                         onChange={(e) =>
                           handleInputChange(placeholder, e.target.value)
