@@ -5,7 +5,7 @@ import React, {
   useEffect,
   useCallback,
 } from 'react'
-import { Idea, Tag, IdeaEvent } from '@/types'
+import { Idea, Tag, IdeaTimelineEvent } from '@/types'
 import { api } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/context/AuthContext'
@@ -23,7 +23,7 @@ interface IdeaContextType {
   updateIdea: (id: string, updates: Partial<Idea>) => Promise<void>
   refreshIdeas: () => Promise<void>
   createTag: (name: string) => Promise<Tag>
-  getEvents: (ideaId: string) => Promise<IdeaEvent[]>
+  getEvents: (ideaId: string) => Promise<IdeaTimelineEvent[]>
 }
 
 const IdeaContext = createContext<IdeaContextType | undefined>(undefined)
@@ -156,7 +156,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
   )
 
   const getEvents = useCallback(async (ideaId: string) => {
-    return api.getIdeaEvents(ideaId)
+    return api.getTimelineEvents(ideaId)
   }, [])
 
   return (

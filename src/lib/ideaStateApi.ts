@@ -6,13 +6,13 @@ import {
   IdeaTimelineEvent,
   IdeaTimelineEventType,
 } from '@/types'
+import { api } from '@/lib/api'
 
 const STORAGE_KEYS = {
   LAST_STATES: 'ideahub_last_states',
   CHECKLISTS: 'ideahub_checklists',
   REFERENCES: 'ideahub_references',
   SNAPSHOTS: 'ideahub_snapshots',
-  TIMELINE_EVENTS: 'ideahub_timeline_events',
 }
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
@@ -283,13 +283,8 @@ class IdeaStateApiMock implements IdeaStateProvider {
   }
 
   async getEvents(ideaId: string): Promise<IdeaTimelineEvent[]> {
-    await delay(200)
-    return (
-      this.getStored<IdeaTimelineEvent[]>(
-        STORAGE_KEYS.TIMELINE_EVENTS,
-        ideaId,
-      ) || []
-    )
+    // Delegate to central API
+    return api.getTimelineEvents(ideaId)
   }
 
   async logEvent(
@@ -297,19 +292,8 @@ class IdeaStateApiMock implements IdeaStateProvider {
     type: IdeaTimelineEventType,
     payload?: Record<string, any>,
   ): Promise<void> {
-    const events =
-      this.getStored<IdeaTimelineEvent[]>(
-        STORAGE_KEYS.TIMELINE_EVENTS,
-        ideaId,
-      ) || []
-    const newEvent: IdeaTimelineEvent = {
-      id: Math.random().toString(36).substring(2, 9),
-      type,
-      createdAt: new Date().toISOString(),
-      payload,
-    }
-    events.unshift(newEvent)
-    this.setStored(STORAGE_KEYS.TIMELINE_EVENTS, ideaId, events)
+    // Delegate to central API
+    return api.logTimelineEvent(ideaId, type, payload || {})
   }
 }
 

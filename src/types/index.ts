@@ -27,15 +27,6 @@ export interface Tag {
   color?: string
 }
 
-// Legacy Event for Status History (Backwards Compatibility)
-export interface IdeaEvent {
-  id: string
-  ideaId: string
-  date: string
-  previousStatus: IdeaStatus | null
-  newStatus: IdeaStatus
-}
-
 export type UserActivityType =
   | 'EMAIL_UPDATE'
   | 'PASSWORD_CHANGE'

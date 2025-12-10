@@ -51,9 +51,9 @@ import {
   STATUS_LABELS,
   CATEGORY_LABELS,
   Tag,
-  IdeaEvent,
+  IdeaTimelineEvent,
 } from '@/types'
-import { X, Calendar, Plus, Check, ChevronsUpDown } from 'lucide-react'
+import { X, Plus, Check } from 'lucide-react'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
@@ -90,7 +90,7 @@ export function IdeaModal({
     getEvents,
   } = useIdeas()
   const [selectedTags, setSelectedTags] = useState<Tag[]>([])
-  const [history, setHistory] = useState<IdeaEvent[]>([])
+  const [history, setHistory] = useState<IdeaTimelineEvent[]>([])
   const [tagSearch, setTagSearch] = useState('')
   const [tagOpen, setTagOpen] = useState(false)
 
@@ -124,7 +124,10 @@ export function IdeaModal({
         })
         setSelectedTags(existingIdea.tags)
         // Fetch history
-        getEvents(existingIdea.id).then(setHistory)
+        getEvents(existingIdea.id).then((events) => {
+          // Filter to show only status changes in the simple history view
+          setHistory(events.filter((e) => e.type === 'status_changed'))
+        })
       } else {
         form.reset({
           title: '',
@@ -454,7 +457,7 @@ export function IdeaModal({
                   <div className="space-y-4">
                     <Separator />
                     <h3 className="text-sm font-semibold">
-                      Histórico de Atividades
+                      Histórico de Atividades (Status)
                     </h3>
                     <div className="space-y-3 pl-2 border-l-2 border-muted">
                       {history.map((h, i) => (
@@ -466,7 +469,7 @@ export function IdeaModal({
                           <div className="grid gap-0.5">
                             <p className="text-muted-foreground text-xs">
                               {format(
-                                new Date(h.date),
+                                new Date(h.createdAt),
                                 "dd 'de' MMMM 'às' HH:mm",
                                 {
                                   locale: ptBR,
@@ -474,22 +477,34 @@ export function IdeaModal({
                               )}
                             </p>
                             <p>
-                              {h.previousStatus ? (
+                              {h.payload?.oldStatus ? (
                                 <>
                                   Mudou de{' '}
                                   <span className="font-medium">
-                                    {STATUS_LABELS[h.previousStatus]}
+                                    {
+                                      STATUS_LABELS[
+                                        h.payload?.oldStatus as IdeaStatus
+                                      ]
+                                    }
                                   </span>{' '}
                                   para{' '}
                                   <span className="font-medium text-foreground">
-                                    {STATUS_LABELS[h.newStatus]}
+                                    {
+                                      STATUS_LABELS[
+                                        h.payload?.newStatus as IdeaStatus
+                                      ]
+                                    }
                                   </span>
                                 </>
                               ) : (
                                 <span>
                                   Ideia criada como{' '}
                                   <span className="font-medium text-foreground">
-                                    {STATUS_LABELS[h.newStatus]}
+                                    {
+                                      STATUS_LABELS[
+                                        h.payload?.newStatus as IdeaStatus
+                                      ]
+                                    }
                                   </span>
                                 </span>
                               )}
@@ -499,7 +514,7 @@ export function IdeaModal({
                       ))}
                       {history.length === 0 && (
                         <p className="text-xs text-muted-foreground">
-                          Nenhuma atividade registrada.
+                          Nenhuma mudança de status registrada.
                         </p>
                       )}
                     </div>

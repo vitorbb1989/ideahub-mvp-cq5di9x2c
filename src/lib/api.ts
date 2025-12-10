@@ -2,10 +2,11 @@ import {
   Idea,
   IdeaStatus,
   Tag,
-  IdeaEvent,
   User,
   UserActivity,
   UserActivityType,
+  IdeaTimelineEvent,
+  IdeaTimelineEventType,
 } from '@/types'
 
 // Helper to generate IDs
@@ -15,11 +16,9 @@ const generateId = () => Math.random().toString(36).substring(2, 9)
 const STORAGE_KEYS = {
   IDEAS: 'ideahub_ideas',
   TAGS: 'ideahub_tags',
-  EVENTS: 'ideahub_events',
   USERS: 'ideahub_users',
   SESSION: 'ideahub_session',
   ACTIVITIES: 'ideahub_activities',
-  // Shared key with IdeaStateApi
   TIMELINE_EVENTS: 'ideahub_timeline_events',
 }
 
@@ -54,14 +53,31 @@ class MockApi {
     }
   }
 
-  // Helper to log granular events to the new timeline system
-  private logTimelineEvent(
+  // --- Timeline Methods ---
+
+  async getTimelineEvents(ideaId: string): Promise<IdeaTimelineEvent[]> {
+    await delay(300)
+    const allEvents = this.getStored<Record<string, IdeaTimelineEvent[]>>(
+      STORAGE_KEYS.TIMELINE_EVENTS,
+      {},
+    )
+    return (allEvents[ideaId] || []).sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )
+  }
+
+  async logTimelineEvent(
     ideaId: string,
-    type: string,
+    type: IdeaTimelineEventType,
     payload: Record<string, any>,
   ) {
+    // This is now "public" to be used by ideaStateApi
     try {
-      const allEvents = this.getStored<any>(STORAGE_KEYS.TIMELINE_EVENTS, {})
+      const allEvents = this.getStored<Record<string, IdeaTimelineEvent[]>>(
+        STORAGE_KEYS.TIMELINE_EVENTS,
+        {},
+      )
       const events = allEvents[ideaId] || []
 
       events.unshift({
@@ -317,9 +333,7 @@ class MockApi {
     ideas.unshift(newIdea)
     this.setStored(STORAGE_KEYS.IDEAS, ideas)
 
-    // Log creation event (Legacy)
-    this.logEvent(newIdea.id, null, newIdea.status)
-    // Log creation event (Granular)
+    // Log creation event (Unified)
     this.logTimelineEvent(newIdea.id, 'status_changed', {
       oldStatus: null,
       newStatus: newIdea.status,
@@ -359,7 +373,6 @@ class MockApi {
 
     // Log status change
     if (updates.status && updates.status !== currentIdea.status) {
-      this.logEvent(id, currentIdea.status, updates.status) // Legacy
       this.logTimelineEvent(id, 'status_changed', {
         oldStatus: currentIdea.status,
         newStatus: updates.status,
@@ -401,31 +414,6 @@ class MockApi {
     tags.push(newTag)
     this.setStored(STORAGE_KEYS.TAGS, tags)
     return newTag
-  }
-
-  async getIdeaEvents(ideaId: string) {
-    await delay(300)
-    const events = this.getStored<IdeaEvent[]>(STORAGE_KEYS.EVENTS, [])
-    return events
-      .filter((e) => e.ideaId === ideaId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-  }
-
-  private logEvent(
-    ideaId: string,
-    previousStatus: IdeaStatus | null,
-    newStatus: IdeaStatus,
-  ) {
-    const events = this.getStored<IdeaEvent[]>(STORAGE_KEYS.EVENTS, [])
-    const newEvent: IdeaEvent = {
-      id: generateId(),
-      ideaId,
-      date: new Date().toISOString(),
-      previousStatus,
-      newStatus,
-    }
-    events.push(newEvent)
-    this.setStored(STORAGE_KEYS.EVENTS, events)
   }
 }
 
