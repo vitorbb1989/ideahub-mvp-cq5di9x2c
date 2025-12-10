@@ -12,9 +12,23 @@ O IdeaHub e uma aplicacao full-stack para gerenciamento de ideias com:
 - Biblioteca de prompts para IA
 - Dashboard com insights e metricas
 
+## Estrutura do Projeto
+
+```
+ideahub-mvp/
+├── frontend/              # Aplicacao React
+│   ├── src/              # Codigo fonte
+│   ├── public/           # Assets estaticos
+│   └── package.json      # Dependencias frontend
+├── backend/              # API NestJS
+│   ├── src/              # Codigo fonte
+│   └── package.json      # Dependencias backend
+└── README.md             # Este arquivo
+```
+
 ## Stack Tecnologica
 
-### Frontend
+### Frontend (`/frontend`)
 - **React 19** - Biblioteca para construcao de interfaces
 - **Vite** - Build tool com Rolldown
 - **TypeScript** - Tipagem estatica
@@ -24,7 +38,7 @@ O IdeaHub e uma aplicacao full-stack para gerenciamento de ideias com:
 - **React Hook Form + Zod** - Formularios com validacao
 - **Recharts** - Graficos e visualizacoes
 
-### Backend
+### Backend (`/backend`)
 - **NestJS** - Framework Node.js
 - **TypeORM** - ORM para PostgreSQL
 - **PostgreSQL** - Banco de dados relacional
@@ -42,10 +56,8 @@ O IdeaHub e uma aplicacao full-stack para gerenciamento de ideias com:
 ### Frontend (modo localStorage)
 
 ```bash
-# Instalar dependencias
+cd frontend
 npm install
-
-# Iniciar em desenvolvimento
 npm run dev
 ```
 
@@ -54,16 +66,9 @@ Acesse: http://localhost:8080
 ### Backend + PostgreSQL
 
 ```bash
-# Entrar no diretorio do backend
 cd backend
-
-# Instalar dependencias
 npm install
-
-# Iniciar PostgreSQL via Docker
 docker-compose up -d
-
-# Iniciar o backend
 npm run start:dev
 ```
 
@@ -73,7 +78,7 @@ npm run start:dev
 
 ### Conectar Frontend ao Backend
 
-Edite o arquivo `.env` na raiz:
+Edite o arquivo `frontend/.env`:
 
 ```env
 VITE_USE_BACKEND=true
@@ -82,7 +87,7 @@ VITE_API_URL=http://localhost:3000/api
 
 ## Scripts Disponiveis
 
-### Frontend
+### Frontend (`cd frontend`)
 
 | Comando | Descricao |
 |---------|-----------|
@@ -92,7 +97,7 @@ VITE_API_URL=http://localhost:3000/api
 | `npm run lint` | Verificar codigo |
 | `npm run format` | Formatar codigo |
 
-### Backend
+### Backend (`cd backend`)
 
 | Comando | Descricao |
 |---------|-----------|
@@ -101,36 +106,6 @@ VITE_API_URL=http://localhost:3000/api
 | `npm run start:prod` | Iniciar em producao |
 | `npm run lint` | Verificar codigo |
 | `npm run test` | Executar testes |
-
-## Estrutura do Projeto
-
-```
-ideahub-mvp/
-├── src/                    # Frontend React
-│   ├── components/         # Componentes reutilizaveis
-│   │   ├── ui/            # Componentes Shadcn UI
-│   │   ├── continuity/    # Features de continuidade
-│   │   └── docs/          # Componentes de documentos
-│   ├── pages/             # Paginas da aplicacao
-│   ├── context/           # Contextos React (Auth, Idea, Docs, Prompt)
-│   ├── services/          # Servicos e API
-│   ├── hooks/             # Custom hooks
-│   ├── lib/               # Utilitarios
-│   └── types/             # Definicoes TypeScript
-├── backend/               # API NestJS
-│   ├── src/
-│   │   ├── modules/       # Modulos de dominio
-│   │   │   ├── auth/      # Autenticacao JWT
-│   │   │   ├── users/     # Gestao de usuarios
-│   │   │   ├── ideas/     # CRUD de ideias
-│   │   │   ├── documents/ # Documentos com versoes
-│   │   │   └── prompts/   # Templates de prompts
-│   │   ├── config/        # Configuracoes
-│   │   └── common/        # Guards, decorators
-│   └── docker-compose.yml # PostgreSQL + pgAdmin
-├── public/                # Assets estaticos
-└── dist/                  # Build de producao
-```
 
 ## Funcionalidades
 
@@ -201,13 +176,13 @@ ideahub-mvp/
 
 ## Variaveis de Ambiente
 
-### Frontend (.env)
+### Frontend (`frontend/.env`)
 ```env
 VITE_USE_BACKEND=false
 VITE_API_URL=http://localhost:3000/api
 ```
 
-### Backend (backend/.env)
+### Backend (`backend/.env`)
 ```env
 DATABASE_HOST=localhost
 DATABASE_PORT=5432

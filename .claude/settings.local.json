@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" log --oneline -20)",
+      "Bash(npm install:*)",
+      "Bash(npm run dev:*)",
+      "Bash(node --version)",
+      "Bash(npm --version:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx @nestjs/cli new:*)",
+      "Bash(npm run build:*)",
+      "Bash(docker --version:*)",
+      "Bash(cat:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Implement NestJS backend with PostgreSQL\n\n- Add complete backend structure with NestJS framework\n- Implement JWT authentication (login/register)\n- Create CRUD endpoints for Ideas, Documents, Prompts, Users\n- Add TypeORM entities with PostgreSQL support\n- Configure Docker Compose for PostgreSQL + pgAdmin\n- Add Swagger API documentation\n- Create API client for frontend integration\n- Update authService to support backend mode\n\nModules implemented:\n- Auth: JWT-based authentication\n- Users: Profile management\n- Ideas: Full CRUD with priority scoring\n- Documents: CRUD with version control\n- Prompts: CRUD with favorites and usage tracking\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
