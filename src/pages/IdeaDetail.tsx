@@ -1,14 +1,7 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useIdeas } from '@/context/IdeaContext'
-import { ideaStateApi } from '@/lib/ideaStateApi'
-import {
-  IdeaLastState,
-  IdeaChecklistItem,
-  IdeaReferenceLink,
-  IdeaTimelineEvent,
-  IdeaSnapshot,
-} from '@/types'
+import { IdeaLastState, IdeaReferenceLink, IdeaSnapshot } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
@@ -30,6 +23,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { useIdeaContinuity } from '@/hooks/useIdeaContinuity'
 
 export default function IdeaDetail() {
   const { id } = useParams<{ id: string }>()
@@ -39,78 +33,42 @@ export default function IdeaDetail() {
 
   const idea = ideas.find((i) => i.id === id)
 
-  // Continuity State
-  const [lastState, setLastState] = useState<IdeaLastState | null>(null)
-  const [checklist, setChecklist] = useState<IdeaChecklistItem[]>([])
-  const [references, setReferences] = useState<IdeaReferenceLink[]>([])
-  const [snapshots, setSnapshots] = useState<IdeaSnapshot[]>([])
-  const [events, setEvents] = useState<IdeaTimelineEvent[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const {
+    lastState,
+    checklist,
+    references,
+    snapshots,
+    events,
+    isLoading: isContinuityLoading,
+    addChecklistItem,
+    toggleChecklistItem,
+    removeChecklistItem,
+    createSnapshot,
+    updateSnapshot,
+    saveStateAndReferences,
+  } = useIdeaContinuity(id)
 
-  // Pending changes state (only for LastState and References now)
+  // Local Pending State (for user editing before save)
   const [pendingLastState, setPendingLastState] =
     useState<IdeaLastState | null>(null)
   const [pendingReferences, setPendingReferences] = useState<
     IdeaReferenceLink[]
   >([])
 
-  // Snapshot Dialog
+  // Snapshot Dialog State
   const [isSnapshotOpen, setIsSnapshotOpen] = useState(false)
   const [snapshotTitle, setSnapshotTitle] = useState('')
 
-  const refreshData = useCallback(async () => {
-    if (!id) return
-    const [cl, sn, ev] = await Promise.all([
-      ideaStateApi.getChecklist(id),
-      ideaStateApi.getSnapshots(id),
-      ideaStateApi.getEvents(id),
-    ])
-    setChecklist(cl)
-    setSnapshots(sn)
-    setEvents(ev)
-  }, [id])
+  // Sync initial state when loaded
+  useEffect(() => {
+    if (lastState) setPendingLastState(lastState)
+  }, [lastState])
 
   useEffect(() => {
-    const loadState = async () => {
-      if (!id) return
-      setIsLoading(true)
-      try {
-        const [ls, cl, rf, sn, ev] = await Promise.all([
-          ideaStateApi.getLastState(id),
-          ideaStateApi.getChecklist(id),
-          ideaStateApi.getReferences(id),
-          ideaStateApi.getSnapshots(id),
-          ideaStateApi.getEvents(id),
-        ])
-        setLastState(ls)
-        setChecklist(cl)
-        setReferences(rf)
-        setSnapshots(sn)
-        setEvents(ev)
+    if (references) setPendingReferences(references)
+  }, [references])
 
-        // Init pending states
-        setPendingLastState(ls)
-        setPendingReferences(rf)
-      } catch (error) {
-        console.error('Failed to load idea state', error)
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadState()
-  }, [id])
-
-  // Poll for events update
-  useEffect(() => {
-    if (!id) return
-    const interval = setInterval(async () => {
-      const ev = await ideaStateApi.getEvents(id)
-      setEvents(ev)
-    }, 2000)
-    return () => clearInterval(interval)
-  }, [id])
-
-  if (isIdeasLoading || isLoading) {
+  if (isIdeasLoading || isContinuityLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -127,26 +85,6 @@ export default function IdeaDetail() {
     )
   }
 
-  // --- Granular Checklist Handlers ---
-  const handleAddChecklistItem = async (label: string) => {
-    if (!id) return
-    await ideaStateApi.addChecklistItem(id, label)
-    await refreshData()
-  }
-
-  const handleToggleChecklistItem = async (itemId: string, done: boolean) => {
-    if (!id) return
-    await ideaStateApi.updateChecklistItem(id, itemId, { done })
-    await refreshData()
-  }
-
-  const handleRemoveChecklistItem = async (itemId: string) => {
-    if (!id) return
-    await ideaStateApi.removeChecklistItem(id, itemId)
-    await refreshData()
-  }
-
-  // --- Snapshot Handlers ---
   const handleCreateSnapshot = async () => {
     if (!id || !snapshotTitle.trim()) return
 
@@ -157,20 +95,14 @@ export default function IdeaDetail() {
       data: {
         ideaTitle: idea.title,
         ideaSummary: idea.summary,
-        lastState: pendingLastState, // Use current pending state
-        checklist: checklist, // Use current live checklist
+        lastState: pendingLastState,
+        checklist: checklist,
         references: pendingReferences,
       },
     }
 
     try {
-      await ideaStateApi.createSnapshot(id, snapshot)
-      await ideaStateApi.logEvent(id, 'snapshot_created', {
-        snapshotId: snapshot.id,
-      })
-
-      await refreshData()
-
+      await createSnapshot(snapshot)
       toast({
         title: 'Snapshot criado!',
         description: `Snapshot "${snapshotTitle}" salvo com sucesso.`,
@@ -186,10 +118,8 @@ export default function IdeaDetail() {
   }
 
   const handleUpdateSnapshot = async (snapshotId: string, title: string) => {
-    if (!id) return
     try {
-      await ideaStateApi.updateSnapshot(id, snapshotId, { title })
-      await refreshData()
+      await updateSnapshot(snapshotId, title)
       toast({
         title: 'Snapshot atualizado',
         description: 'Título atualizado com sucesso.',
@@ -199,147 +129,8 @@ export default function IdeaDetail() {
     }
   }
 
-  // --- Batch Save (Last State & References) ---
-  const handleSaveState = async () => {
-    if (!id) return
-
-    const promises = []
-
-    // Save Last State
-    if (pendingLastState) {
-      promises.push(ideaStateApi.saveLastState(id, pendingLastState))
-    }
-
-    // Save References
-    promises.push(ideaStateApi.saveReferences(id, pendingReferences))
-
-    // Diff Logic for Last State
-    if (lastState && pendingLastState) {
-      const changes = []
-      const keys: (keyof IdeaLastState)[] = [
-        'whereIStopped',
-        'whatIWasDoing',
-        'nextStep',
-      ]
-      keys.forEach((key) => {
-        if (lastState[key] !== pendingLastState[key]) {
-          changes.push({
-            field: key,
-            oldValue: lastState[key],
-            newValue: pendingLastState[key],
-          })
-        }
-      })
-
-      if (changes.length > 0) {
-        promises.push(
-          ideaStateApi.logEvent(id, 'last_state_updated', { changes }),
-        )
-      }
-    } else if (!lastState && pendingLastState) {
-      // First time saving state
-      promises.push(
-        ideaStateApi.logEvent(id, 'last_state_updated', {
-          changes: [
-            {
-              field: 'whereIStopped',
-              oldValue: '',
-              newValue: pendingLastState.whereIStopped,
-            },
-            {
-              field: 'whatIWasDoing',
-              oldValue: '',
-              newValue: pendingLastState.whatIWasDoing,
-            },
-            {
-              field: 'nextStep',
-              oldValue: '',
-              newValue: pendingLastState.nextStep,
-            },
-          ],
-        }),
-      )
-    }
-
-    // Diff Logic for References
-    const addedRefs = pendingReferences.filter(
-      (p) => !references.find((r) => r.id === p.id),
-    )
-    const removedRefs = references.filter(
-      (r) => !pendingReferences.find((p) => p.id === r.id),
-    )
-    const updatedRefs = pendingReferences
-      .filter((p) => {
-        const original = references.find((r) => r.id === p.id)
-        return (
-          original && (original.title !== p.title || original.url !== p.url)
-        )
-      })
-      .map((p) => {
-        const original = references.find((r) => r.id === p.id)!
-        let changeType = 'title'
-        if (original.title !== p.title && original.url !== p.url)
-          changeType = 'both'
-        else if (original.url !== p.url) changeType = 'url'
-
-        return {
-          ...p,
-          oldTitle: original.title,
-          newTitle: p.title,
-          oldUrl: original.url,
-          newUrl: p.url,
-          change: changeType,
-        }
-      })
-
-    if (
-      addedRefs.length > 0 ||
-      removedRefs.length > 0 ||
-      updatedRefs.length > 0
-    ) {
-      promises.push(
-        ideaStateApi.logEvent(id, 'references_updated', {
-          added: addedRefs,
-          removed: removedRefs,
-          updated: updatedRefs,
-        }),
-      )
-    }
-
-    try {
-      await Promise.all(promises)
-
-      // Refresh data
-      const [ls, rf, ev] = await Promise.all([
-        ideaStateApi.getLastState(id),
-        ideaStateApi.getReferences(id),
-        ideaStateApi.getEvents(id),
-      ])
-
-      setLastState(ls)
-      setReferences(rf)
-      setEvents(ev)
-
-      // Update pending baseline
-      setPendingLastState(ls)
-      setPendingReferences(rf)
-
-      toast({
-        title: 'Progresso salvo!',
-        description: 'Estado e referências foram salvos.',
-      })
-    } catch (error) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao salvar',
-        description: 'Não foi possível salvar o progresso.',
-      })
-    }
-  }
-
   return (
     <div className="max-w-5xl mx-auto pb-20 space-y-8 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col gap-4">
         <Button
           variant="ghost"
@@ -379,7 +170,12 @@ export default function IdeaDetail() {
               <Camera className="w-4 h-4" />
               Snapshot
             </Button>
-            <Button onClick={handleSaveState} className="gap-2">
+            <Button
+              onClick={() =>
+                saveStateAndReferences(pendingLastState, pendingReferences)
+              }
+              className="gap-2"
+            >
               <Save className="w-4 h-4" />
               Salvar Estado
             </Button>
@@ -391,47 +187,39 @@ export default function IdeaDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
-          {/* Last Saved State - Prominent */}
           <section id="last-saved-state" className="scroll-mt-24">
             <LastSavedState
-              initialState={lastState}
+              initialState={pendingLastState}
               onChange={setPendingLastState}
             />
           </section>
 
           <div className="grid md:grid-cols-2 gap-6">
-            {/* Checklist - Now Realtime */}
             <div className="space-y-6">
               <IdeaChecklist
                 items={checklist}
-                onAdd={handleAddChecklistItem}
-                onToggle={handleToggleChecklistItem}
-                onRemove={handleRemoveChecklistItem}
+                onAdd={addChecklistItem}
+                onToggle={toggleChecklistItem}
+                onRemove={removeChecklistItem}
               />
-              {/* Snapshots List */}
               <IdeaSnapshots
                 snapshots={snapshots}
                 onUpdate={handleUpdateSnapshot}
               />
             </div>
 
-            {/* References - Still Batch */}
             <IdeaLinkedDocs
-              initialLinks={references}
-              onChange={(links) => {
-                setPendingReferences(links)
-              }}
+              initialLinks={pendingReferences}
+              onChange={setPendingReferences}
             />
           </div>
         </div>
 
         <div className="lg:col-span-1">
-          {/* History */}
           <IdeaTimeline events={events} />
         </div>
       </div>
 
-      {/* Snapshot Dialog */}
       <Dialog open={isSnapshotOpen} onOpenChange={setIsSnapshotOpen}>
         <DialogContent>
           <DialogHeader>

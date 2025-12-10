@@ -21,7 +21,6 @@ export interface IdeaStateProvider {
   getLastState(ideaId: string): Promise<IdeaLastState | null>
   saveLastState(ideaId: string, state: IdeaLastState): Promise<void>
 
-  // Checklist - Granular operations
   getChecklist(ideaId: string): Promise<IdeaChecklistItem[]>
   addChecklistItem(ideaId: string, label: string): Promise<IdeaChecklistItem>
   updateChecklistItem(
@@ -34,7 +33,6 @@ export interface IdeaStateProvider {
   getReferences(ideaId: string): Promise<IdeaReferenceLink[]>
   saveReferences(ideaId: string, links: IdeaReferenceLink[]): Promise<void>
 
-  // Snapshots
   getSnapshots(ideaId: string): Promise<IdeaSnapshot[]>
   createSnapshot(ideaId: string, snapshot: IdeaSnapshot): Promise<void>
   updateSnapshot(
@@ -72,9 +70,54 @@ class IdeaStateApiMock implements IdeaStateProvider {
     return this.getStored<IdeaLastState>(STORAGE_KEYS.LAST_STATES, ideaId)
   }
 
-  async saveLastState(ideaId: string, state: IdeaLastState): Promise<void> {
+  async saveLastState(ideaId: string, newState: IdeaLastState): Promise<void> {
     await delay(200)
-    this.setStored(STORAGE_KEYS.LAST_STATES, ideaId, state)
+    const oldState = this.getStored<IdeaLastState>(
+      STORAGE_KEYS.LAST_STATES,
+      ideaId,
+    )
+
+    // Diff Logic
+    if (oldState) {
+      const changes = []
+      const keys: (keyof IdeaLastState)[] = [
+        'whereIStopped',
+        'whatIWasDoing',
+        'nextStep',
+      ]
+      keys.forEach((key) => {
+        if (oldState[key] !== newState[key]) {
+          changes.push({
+            field: key,
+            oldValue: oldState[key],
+            newValue: newState[key],
+          })
+        }
+      })
+
+      if (changes.length > 0) {
+        await this.logEvent(ideaId, 'last_state_updated', { changes })
+      }
+    } else {
+      // First save
+      await this.logEvent(ideaId, 'last_state_updated', {
+        changes: [
+          {
+            field: 'whereIStopped',
+            oldValue: '',
+            newValue: newState.whereIStopped,
+          },
+          {
+            field: 'whatIWasDoing',
+            oldValue: '',
+            newValue: newState.whatIWasDoing,
+          },
+          { field: 'nextStep', oldValue: '', newValue: newState.nextStep },
+        ],
+      })
+    }
+
+    this.setStored(STORAGE_KEYS.LAST_STATES, ideaId, newState)
   }
 
   // --- Checklist Operations ---
@@ -91,7 +134,7 @@ class IdeaStateApiMock implements IdeaStateProvider {
     label: string,
   ): Promise<IdeaChecklistItem> {
     await delay(200)
-    const items = await this.getChecklist(ideaId)
+    const items = (await this.getChecklist(ideaId)) || []
     const newItem: IdeaChecklistItem = {
       id: Math.random().toString(36).substring(2, 9),
       label,
@@ -100,7 +143,6 @@ class IdeaStateApiMock implements IdeaStateProvider {
     const updatedItems = [...items, newItem]
     this.setStored(STORAGE_KEYS.CHECKLISTS, ideaId, updatedItems)
 
-    // Log event
     await this.logEvent(ideaId, 'checklist_updated', {
       added: [newItem],
       removed: [],
@@ -116,7 +158,7 @@ class IdeaStateApiMock implements IdeaStateProvider {
     updates: Partial<IdeaChecklistItem>,
   ): Promise<void> {
     await delay(200)
-    const items = await this.getChecklist(ideaId)
+    const items = (await this.getChecklist(ideaId)) || []
     const index = items.findIndex((i) => i.id === itemId)
     if (index === -1) return
 
@@ -126,7 +168,6 @@ class IdeaStateApiMock implements IdeaStateProvider {
 
     this.setStored(STORAGE_KEYS.CHECKLISTS, ideaId, items)
 
-    // Log event
     const change = original.done !== updated.done ? 'status' : 'label'
     await this.logEvent(ideaId, 'checklist_updated', {
       added: [],
@@ -144,14 +185,13 @@ class IdeaStateApiMock implements IdeaStateProvider {
 
   async removeChecklistItem(ideaId: string, itemId: string): Promise<void> {
     await delay(200)
-    const items = await this.getChecklist(ideaId)
+    const items = (await this.getChecklist(ideaId)) || []
     const itemToRemove = items.find((i) => i.id === itemId)
     if (!itemToRemove) return
 
     const updatedItems = items.filter((i) => i.id !== itemId)
     this.setStored(STORAGE_KEYS.CHECKLISTS, ideaId, updatedItems)
 
-    // Log event
     await this.logEvent(ideaId, 'checklist_updated', {
       added: [],
       removed: [itemToRemove],
@@ -168,10 +208,45 @@ class IdeaStateApiMock implements IdeaStateProvider {
 
   async saveReferences(
     ideaId: string,
-    links: IdeaReferenceLink[],
+    newLinks: IdeaReferenceLink[],
   ): Promise<void> {
     await delay(200)
-    this.setStored(STORAGE_KEYS.REFERENCES, ideaId, links)
+    const oldLinks =
+      this.getStored<IdeaReferenceLink[]>(STORAGE_KEYS.REFERENCES, ideaId) || []
+
+    // Diff Logic
+    const added = newLinks.filter((n) => !oldLinks.find((o) => o.id === n.id))
+    const removed = oldLinks.filter((o) => !newLinks.find((n) => n.id === o.id))
+    const updated = newLinks
+      .filter((n) => {
+        const o = oldLinks.find((o) => o.id === n.id)
+        return o && (o.title !== n.title || o.url !== n.url)
+      })
+      .map((n) => {
+        const o = oldLinks.find((o) => o.id === n.id)!
+        let changeType = 'title'
+        if (o.title !== n.title && o.url !== n.url) changeType = 'both'
+        else if (o.url !== n.url) changeType = 'url'
+
+        return {
+          ...n,
+          oldTitle: o.title,
+          newTitle: n.title,
+          oldUrl: o.url,
+          newUrl: n.url,
+          change: changeType,
+        }
+      })
+
+    if (added.length > 0 || removed.length > 0 || updated.length > 0) {
+      await this.logEvent(ideaId, 'references_updated', {
+        added,
+        removed,
+        updated,
+      })
+    }
+
+    this.setStored(STORAGE_KEYS.REFERENCES, ideaId, newLinks)
   }
 
   // --- Snapshot Operations ---
@@ -183,9 +258,14 @@ class IdeaStateApiMock implements IdeaStateProvider {
 
   async createSnapshot(ideaId: string, snapshot: IdeaSnapshot): Promise<void> {
     await delay(200)
-    const snapshots = await this.getSnapshots(ideaId)
+    const snapshots = (await this.getSnapshots(ideaId)) || []
     snapshots.unshift(snapshot)
     this.setStored(STORAGE_KEYS.SNAPSHOTS, ideaId, snapshots)
+
+    await this.logEvent(ideaId, 'snapshot_created', {
+      snapshotId: snapshot.id,
+      title: snapshot.title,
+    })
   }
 
   async updateSnapshot(
@@ -194,7 +274,7 @@ class IdeaStateApiMock implements IdeaStateProvider {
     updates: { title: string },
   ): Promise<void> {
     await delay(200)
-    const snapshots = await this.getSnapshots(ideaId)
+    const snapshots = (await this.getSnapshots(ideaId)) || []
     const index = snapshots.findIndex((s) => s.id === snapshotId)
     if (index === -1) return
 
@@ -217,7 +297,11 @@ class IdeaStateApiMock implements IdeaStateProvider {
     type: IdeaTimelineEventType,
     payload?: Record<string, any>,
   ): Promise<void> {
-    const events = await this.getEvents(ideaId)
+    const events =
+      this.getStored<IdeaTimelineEvent[]>(
+        STORAGE_KEYS.TIMELINE_EVENTS,
+        ideaId,
+      ) || []
     const newEvent: IdeaTimelineEvent = {
       id: Math.random().toString(36).substring(2, 9),
       type,
