@@ -18,6 +18,7 @@ import Register from './pages/Register'
 import NotFound from './pages/NotFound'
 import Resume from './pages/Resume'
 import IdeaDetail from './pages/IdeaDetail'
+import PersistenceTest from './pages/PersistenceTest'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { Loader2 } from 'lucide-react'
@@ -81,6 +82,7 @@ const App = () => (
               <Route path="/ideas/:id" element={<IdeaDetail />} />
               <Route path="/documentation" element={<Documentation />} />
               <Route path="/profile" element={<Profile />} />
+              <Route path="/persistence-test" element={<PersistenceTest />} />
             </Route>
           </Route>
 
