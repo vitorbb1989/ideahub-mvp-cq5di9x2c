@@ -6,7 +6,7 @@ import {
   IdeaSnapshot,
   IdeaTimelineEvent,
 } from '@/types'
-import { ideaStateApi } from '@/lib/ideaStateApi'
+import { ideaService } from '@/services/ideaService'
 import { useToast } from '@/hooks/use-toast'
 
 export function useIdeaContinuity(ideaId: string | undefined) {
@@ -22,11 +22,11 @@ export function useIdeaContinuity(ideaId: string | undefined) {
     if (!ideaId) return
     try {
       const [cl, sn, ev, rs, rf] = await Promise.all([
-        ideaStateApi.getChecklist(ideaId),
-        ideaStateApi.getSnapshots(ideaId),
-        ideaStateApi.getEvents(ideaId),
-        ideaStateApi.getLastState(ideaId),
-        ideaStateApi.getReferences(ideaId),
+        ideaService.getChecklist(ideaId),
+        ideaService.getSnapshots(ideaId),
+        ideaService.getTimelineEvents(ideaId),
+        ideaService.getLastState(ideaId),
+        ideaService.getReferences(ideaId),
       ])
       setChecklist(cl)
       setSnapshots(sn)
@@ -61,7 +61,7 @@ export function useIdeaContinuity(ideaId: string | undefined) {
   useEffect(() => {
     if (!ideaId) return
     const interval = setInterval(async () => {
-      const ev = await ideaStateApi.getEvents(ideaId)
+      const ev = await ideaService.getTimelineEvents(ideaId)
       setEvents(ev)
     }, 2000)
     return () => clearInterval(interval)
@@ -70,32 +70,32 @@ export function useIdeaContinuity(ideaId: string | undefined) {
   // Checklists
   const addChecklistItem = async (label: string) => {
     if (!ideaId) return
-    await ideaStateApi.addChecklistItem(ideaId, label)
+    await ideaService.addChecklistItem(ideaId, label)
     await refreshData()
   }
 
   const toggleChecklistItem = async (itemId: string, done: boolean) => {
     if (!ideaId) return
-    await ideaStateApi.updateChecklistItem(ideaId, itemId, { done })
+    await ideaService.updateChecklistItem(ideaId, itemId, { done })
     await refreshData()
   }
 
   const removeChecklistItem = async (itemId: string) => {
     if (!ideaId) return
-    await ideaStateApi.removeChecklistItem(ideaId, itemId)
+    await ideaService.removeChecklistItem(ideaId, itemId)
     await refreshData()
   }
 
   // Snapshots
   const createSnapshot = async (snapshot: IdeaSnapshot) => {
     if (!ideaId) return
-    await ideaStateApi.createSnapshot(ideaId, snapshot)
+    await ideaService.createSnapshot(ideaId, snapshot)
     await refreshData()
   }
 
   const updateSnapshot = async (snapshotId: string, title: string) => {
     if (!ideaId) return
-    await ideaStateApi.updateSnapshot(ideaId, snapshotId, { title })
+    await ideaService.updateSnapshot(ideaId, snapshotId, { title })
     await refreshData()
   }
 
@@ -108,9 +108,9 @@ export function useIdeaContinuity(ideaId: string | undefined) {
     try {
       const promises = []
       if (newState) {
-        promises.push(ideaStateApi.saveLastState(ideaId, newState))
+        promises.push(ideaService.saveLastState(ideaId, newState))
       }
-      promises.push(ideaStateApi.saveReferences(ideaId, newReferences))
+      promises.push(ideaService.saveReferences(ideaId, newReferences))
       await Promise.all(promises)
       await refreshData()
       toast({

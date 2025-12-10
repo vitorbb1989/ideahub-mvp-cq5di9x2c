@@ -1,5 +1,4 @@
-import { api } from '@/lib/api'
-import { ideaStateApi } from '@/lib/ideaStateApi'
+import { ideaService } from '@/services/ideaService'
 import { IdeaStatus, IdeaCategory } from '@/types'
 
 export type TestLogger = (
@@ -13,7 +12,7 @@ export async function testIdeaLifecycle(log: TestLogger) {
 
   // 1. Create
   log('Criando nova ideia...', 'info')
-  const newIdea = await api.createIdea({
+  const newIdea = await ideaService.createIdea({
     title: 'Persistence Test Idea',
     summary: 'Automated test idea',
     description: 'Testing 123',
@@ -30,7 +29,7 @@ export async function testIdeaLifecycle(log: TestLogger) {
 
   // 2. Retrieve
   log('Recuperando ideia do armazenamento...', 'info')
-  const fetched = await api.getIdea(newIdea.id)
+  const fetched = await ideaService.getIdea(newIdea.id)
   if (!fetched) throw new Error('Ideia não encontrada no armazenamento')
   if (fetched.title !== 'Persistence Test Idea')
     throw new Error(`Divergência no título: ${fetched.title}`)
@@ -38,12 +37,12 @@ export async function testIdeaLifecycle(log: TestLogger) {
 
   // 3. Update
   log('Atualizando status e título...', 'info')
-  await api.updateIdea(newIdea.id, {
+  await ideaService.updateIdea(newIdea.id, {
     status: 'em_analise' as IdeaStatus,
     title: 'Updated Test Idea',
   })
 
-  const updated = await api.getIdea(newIdea.id)
+  const updated = await ideaService.getIdea(newIdea.id)
   if (updated?.status !== 'em_analise')
     throw new Error('Falha na atualização de status')
   if (updated?.title !== 'Updated Test Idea')
@@ -61,30 +60,30 @@ export async function testChecklistPersistence(
 
   // 1. Add Item
   log('Adicionando item ao checklist...', 'info')
-  const item = await ideaStateApi.addChecklistItem(ideaId, 'Test Task 1')
+  const item = await ideaService.addChecklistItem(ideaId, 'Test Task 1')
   if (!item?.id) throw new Error('Falha ao adicionar item')
   log(`Item adicionado: ${item.label}`, 'success')
 
   // 2. Verify Persistence
   log('Verificando armazenamento do checklist...', 'info')
-  let items = await ideaStateApi.getChecklist(ideaId)
+  let items = await ideaService.getChecklist(ideaId)
   if (!items.find((i) => i.id === item.id))
     throw new Error('Item não encontrado')
 
   // 3. Toggle Item
   log('Alternando status do item...', 'info')
-  await ideaStateApi.updateChecklistItem(ideaId, item.id, { done: true })
+  await ideaService.updateChecklistItem(ideaId, item.id, { done: true })
 
-  items = await ideaStateApi.getChecklist(ideaId)
+  items = await ideaService.getChecklist(ideaId)
   const toggled = items.find((i) => i.id === item.id)
   if (!toggled?.done) throw new Error('Status do item não persistiu')
   log('Alternância de item verificada', 'success')
 
   // 4. Remove Item
   log('Removendo item...', 'info')
-  await ideaStateApi.removeChecklistItem(ideaId, item.id)
+  await ideaService.removeChecklistItem(ideaId, item.id)
 
-  items = await ideaStateApi.getChecklist(ideaId)
+  items = await ideaService.getChecklist(ideaId)
   if (items.find((i) => i.id === item.id))
     throw new Error('Remoção de item falhou')
   log('Remoção de item verificada', 'success')
@@ -97,7 +96,7 @@ export async function testSnapshotPersistence(ideaId: string, log: TestLogger) {
 
   // 1. Create Snapshot
   log('Criando snapshot...', 'info')
-  await ideaStateApi.createSnapshot(ideaId, {
+  await ideaService.createSnapshot(ideaId, {
     id: 'snap-' + Math.random(),
     title: snapshotTitle,
     createdAt: new Date().toISOString(),
@@ -112,7 +111,7 @@ export async function testSnapshotPersistence(ideaId: string, log: TestLogger) {
 
   // 2. Verify
   log('Verificando armazenamento de snapshot...', 'info')
-  const snapshots = await ideaStateApi.getSnapshots(ideaId)
+  const snapshots = await ideaService.getSnapshots(ideaId)
   const saved = snapshots.find((s) => s.title === snapshotTitle)
 
   if (!saved) throw new Error('Snapshot não encontrado')
@@ -120,11 +119,11 @@ export async function testSnapshotPersistence(ideaId: string, log: TestLogger) {
 
   // 3. Update Snapshot
   log('Atualizando título do snapshot...', 'info')
-  await ideaStateApi.updateSnapshot(ideaId, saved.id, {
+  await ideaService.updateSnapshot(ideaId, saved.id, {
     title: 'Updated Snapshot V1',
   })
 
-  const updatedSnapshots = await ideaStateApi.getSnapshots(ideaId)
+  const updatedSnapshots = await ideaService.getSnapshots(ideaId)
   const updated = updatedSnapshots.find((s) => s.id === saved.id)
   if (updated?.title !== 'Updated Snapshot V1')
     throw new Error('Atualização de snapshot falhou')
@@ -146,11 +145,11 @@ export async function testContinuityPersistence(
     updatedAt: new Date().toISOString(),
   }
 
-  await ideaStateApi.saveLastState(ideaId, lastState)
+  await ideaService.saveLastState(ideaId, lastState)
 
   // 2. Verify Last State
   log('Verificando último estado...', 'info')
-  const fetchedState = await ideaStateApi.getLastState(ideaId)
+  const fetchedState = await ideaService.getLastState(ideaId)
   if (fetchedState?.whereIStopped !== lastState.whereIStopped)
     throw new Error('Divergência no último estado')
   log('Último estado verificado', 'success')
@@ -158,11 +157,11 @@ export async function testContinuityPersistence(
   // 3. Save References
   log('Salvando referências...', 'info')
   const links = [{ id: 'link-1', title: 'Google', url: 'https://google.com' }]
-  await ideaStateApi.saveReferences(ideaId, links)
+  await ideaService.saveReferences(ideaId, links)
 
   // 4. Verify References
   log('Verificando referências...', 'info')
-  const fetchedLinks = await ideaStateApi.getReferences(ideaId)
+  const fetchedLinks = await ideaService.getReferences(ideaId)
   if (!fetchedLinks.find((l) => l.url === links[0].url))
     throw new Error('Link de referência não encontrado')
   log('Referências verificadas', 'success')

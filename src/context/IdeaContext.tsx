@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from 'react'
 import { Idea, Tag, IdeaTimelineEvent } from '@/types'
-import { api } from '@/lib/api'
+import { ideaService } from '@/services/ideaService'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/context/AuthContext'
 
@@ -47,8 +47,8 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
 
     try {
       const [fetchedIdeas, fetchedTags] = await Promise.all([
-        api.getIdeas(user.id),
-        api.getTags(),
+        ideaService.getIdeas(user.id),
+        ideaService.getTags(),
       ])
       setIdeas(fetchedIdeas)
       setTags(fetchedTags)
@@ -78,7 +78,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
       if (!user) return
 
       try {
-        const created = await api.createIdea({
+        const created = await ideaService.createIdea({
           ...newIdea,
           userId: user.id,
         })
@@ -111,7 +111,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
           ),
         )
 
-        const updated = await api.updateIdea(id, updates)
+        const updated = await ideaService.updateIdea(id, updates)
 
         // Reconcile with server response (important for calculated fields like priorityScore)
         setIdeas((prev) =>
@@ -133,7 +133,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
   const createTag = useCallback(
     async (name: string) => {
       try {
-        const newTag = await api.createTag(name)
+        const newTag = await ideaService.createTag(name)
         // Check if tag already exists in state to avoid duplicates
         setTags((prev) => {
           if (!prev.some((t) => t.id === newTag.id)) {
@@ -156,7 +156,7 @@ export const IdeaProvider: React.FC<{ children: React.ReactNode }> = ({
   )
 
   const getEvents = useCallback(async (ideaId: string) => {
-    return api.getTimelineEvents(ideaId)
+    return ideaService.getTimelineEvents(ideaId)
   }, [])
 
   return (

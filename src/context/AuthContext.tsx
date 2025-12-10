@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { User } from '@/types'
-import { api } from '@/lib/api'
+import { authService } from '@/services/authService'
+import { userService } from '@/services/userService'
 import { useToast } from '@/hooks/use-toast'
 
 interface AuthContextType {
@@ -29,7 +30,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const currentUser = await api.getCurrentUser()
+        const currentUser = await authService.getCurrentUser()
         setUser(currentUser)
       } catch (error) {
         console.error('Failed to restore session:', error)
@@ -43,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const login = async (email: string, pass: string) => {
     setIsLoading(true)
     try {
-      const user = await api.login(email, pass)
+      const user = await authService.login(email, pass)
       setUser(user)
       toast({
         title: 'Bem-vindo de volta!',
@@ -66,7 +67,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const register = async (name: string, email: string, pass: string) => {
     setIsLoading(true)
     try {
-      const user = await api.register(name, email, pass)
+      const user = await authService.register(name, email, pass)
       setUser(user)
       toast({
         title: 'Conta criada!',
@@ -88,7 +89,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logout = async () => {
     try {
-      await api.logout()
+      await authService.logout()
       setUser(null)
       toast({
         title: 'Até logo!',
@@ -107,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!user) return
 
     try {
-      const updatedUser = await api.updateProfile(user.id, data)
+      const updatedUser = await userService.updateProfile(user.id, data)
       setUser(updatedUser)
       // Only show toast for name/email updates, AvatarUpload handles its own feedback
       if (data.name || data.email) {
@@ -134,7 +135,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     if (!user) return
 
     try {
-      await api.changePassword(user.id, currentPass, newPass)
+      await userService.changePassword(user.id, currentPass, newPass)
       toast({
         title: 'Senha alterada',
         description: 'Sua senha foi atualizada com sucesso.',

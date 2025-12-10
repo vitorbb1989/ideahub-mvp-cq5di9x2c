@@ -16,7 +16,7 @@ import {
   FileText,
   Loader2,
 } from 'lucide-react'
-import { api } from '@/lib/api'
+import { userService } from '@/services/userService'
 import { UserActivity, UserActivityType } from '@/types'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -71,7 +71,7 @@ export function ActivityHistory({
     const fetchActivities = async () => {
       setIsLoading(true)
       try {
-        const data = await api.getUserActivities(userId)
+        const data = await userService.getUserActivities(userId)
         setActivities(data)
       } catch (error) {
         console.error('Failed to load activities:', error)
