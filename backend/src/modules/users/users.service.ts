@@ -71,4 +71,31 @@ export class UsersService {
   async validatePassword(user: User, password: string): Promise<boolean> {
     return bcrypt.compare(password, user.password);
   }
+
+  /**
+   * Update user's refresh token hash in database
+   * @param userId User ID
+   * @param refreshTokenHash Hashed refresh token (or null to invalidate)
+   */
+  async updateRefreshToken(
+    userId: string,
+    refreshTokenHash: string | null,
+  ): Promise<void> {
+    await this.usersRepository.update(userId, {
+      refreshToken: refreshTokenHash,
+    });
+  }
+
+  /**
+   * Get user with refresh token for validation
+   * @param userId User ID
+   * @returns User with refreshToken field included
+   */
+  async findOneWithRefreshToken(userId: string): Promise<User | null> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.refreshToken')
+      .where('user.id = :userId', { userId })
+      .getOne();
+  }
 }

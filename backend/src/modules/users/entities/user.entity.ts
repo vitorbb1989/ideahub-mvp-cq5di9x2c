@@ -26,6 +26,12 @@ export class User {
   @Exclude()
   password: string;
 
+  // Hashed refresh token for secure token rotation
+  // select: false means it won't be returned in queries by default
+  @Column({ nullable: true, select: false })
+  @Exclude()
+  refreshToken: string | null;
+
   @Column({ nullable: true })
   avatar: string;
 
