@@ -11,88 +11,21 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IdeaStatus, IdeaCategory } from '../entities/idea.entity';
-
-class ChecklistItemDto {
-  @IsString()
-  id: string;
-
-  @IsString()
-  text: string;
-
-  @IsOptional()
-  completed?: boolean;
-}
-
-class AttachmentDto {
-  @IsString()
-  id: string;
-
-  @IsString()
-  name: string;
-
-  @IsString()
-  url: string;
-
-  @IsString()
-  type: string;
-}
-
-class LinkDto {
-  @IsString()
-  id: string;
-
-  @IsString()
-  title: string;
-
-  @IsString()
-  url: string;
-}
-
-class SnapshotDto {
-  @IsString()
-  id: string;
-
-  @IsString()
-  title: string;
-
-  @IsString()
-  content: string;
-
-  @IsString()
-  createdAt: string;
-}
-
-class LastSavedStateDto {
-  @IsOptional()
-  @IsString()
-  whereIStopped?: string;
-
-  @IsOptional()
-  @IsString()
-  whatIWasDoing?: string;
-
-  @IsOptional()
-  @IsString()
-  nextSteps?: string;
-
-  @IsOptional()
-  @IsString()
-  savedAt?: string;
-}
-
-class TimelineItemDto {
-  @IsString()
-  id: string;
-
-  @IsString()
-  action: string;
-
-  @IsString()
-  description: string;
-
-  @IsString()
-  timestamp: string;
-}
+import { IsValidJsonb, IsValidJsonbArray } from '../../../common/validators';
+import {
+  ChecklistItemSchema,
+  AttachmentSchema,
+  LinkSchema,
+  SnapshotSchema,
+  LastSavedStateSchema,
+  TimelineItemSchema,
+  type ChecklistItem,
+  type Attachment,
+  type Link,
+  type Snapshot,
+  type LastSavedState,
+  type TimelineItem,
+} from '../../../common/schemas';
 
 export class CreateIdeaDto {
   @ApiProperty({ example: 'My great idea' })
@@ -139,50 +72,93 @@ export class CreateIdeaDto {
   @Max(10)
   effort?: number;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Checklist items with id (UUID), text (1-500 chars), and completed (boolean)',
+    example: [{ id: '550e8400-e29b-41d4-a716-446655440000', text: 'First task', completed: false }],
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => ChecklistItemDto)
-  checklist?: ChecklistItemDto[];
+  @IsValidJsonbArray(ChecklistItemSchema, {
+    message: 'checklist: Each item must have id (UUID), text (1-500 chars), and completed (boolean)',
+  })
+  checklist?: ChecklistItem[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Attachments with id (UUID), name, url (valid URL), and type',
+    example: [{ id: '550e8400-e29b-41d4-a716-446655440000', name: 'doc.pdf', url: 'https://example.com/doc.pdf', type: 'application/pdf' }],
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => AttachmentDto)
-  attachments?: AttachmentDto[];
+  @IsValidJsonbArray(AttachmentSchema, {
+    message: 'attachments: Each item must have id (UUID), name, url (valid URL), and type',
+  })
+  attachments?: Attachment[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Links with id (UUID), title, and url (valid URL)',
+    example: [{ id: '550e8400-e29b-41d4-a716-446655440000', title: 'Reference', url: 'https://example.com' }],
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => LinkDto)
-  links?: LinkDto[];
+  @IsValidJsonbArray(LinkSchema, {
+    message: 'links: Each item must have id (UUID), title, and url (valid URL)',
+  })
+  links?: Link[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Snapshots with id (UUID), title, content, and createdAt (ISO datetime)',
+    example: [{ id: '550e8400-e29b-41d4-a716-446655440000', title: 'v1', content: 'Content', createdAt: '2024-01-01T00:00:00Z' }],
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => SnapshotDto)
-  snapshots?: SnapshotDto[];
+  @IsValidJsonbArray(SnapshotSchema, {
+    message: 'snapshots: Each item must have id (UUID), title, content, and createdAt (ISO datetime)',
+  })
+  snapshots?: Snapshot[];
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Last saved state with optional whereIStopped, whatIWasDoing, nextSteps, and savedAt',
+  })
   @IsOptional()
-  @ValidateNested()
-  @Type(() => LastSavedStateDto)
-  lastSavedState?: LastSavedStateDto;
+  @IsValidJsonb(LastSavedStateSchema, {
+    message: 'lastSavedState: Invalid structure. Expected whereIStopped, whatIWasDoing, nextSteps (strings), savedAt (ISO datetime)',
+  })
+  lastSavedState?: LastSavedState;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Timeline items with id (UUID), action, description, and timestamp (ISO datetime)',
+    example: [{ id: '550e8400-e29b-41d4-a716-446655440000', action: 'created', description: 'Idea created', timestamp: '2024-01-01T00:00:00Z' }],
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => TimelineItemDto)
-  timeline?: TimelineItemDto[];
+  @IsValidJsonbArray(TimelineItemSchema, {
+    message: 'timeline: Each item must have id (UUID), action, description, and timestamp (ISO datetime)',
+  })
+  timeline?: TimelineItem[];
 
   @ApiPropertyOptional({ type: [String] })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
   linkedDocIds?: string[];
+}
+
+/**
+ * DTO for creating an idea with an initial document in a single transaction
+ */
+class InitialDocumentDto {
+  @ApiProperty({ example: 'Project Documentation' })
+  @IsString()
+  name: string;
+
+  @ApiProperty({ example: 'Initial content for the document' })
+  @IsString()
+  content: string;
+}
+
+export class CreateIdeaWithDocumentDto {
+  @ApiProperty({ type: CreateIdeaDto })
+  @ValidateNested()
+  @Type(() => CreateIdeaDto)
+  idea: CreateIdeaDto;
+
+  @ApiProperty({ type: InitialDocumentDto })
+  @ValidateNested()
+  @Type(() => InitialDocumentDto)
+  document: InitialDocumentDto;
 }

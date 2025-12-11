@@ -1,22 +1,11 @@
-import { IsString, IsOptional, IsEnum, IsArray, ValidateNested } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import { DocumentType } from '../entities/document.entity';
-
-class VersionDto {
-  @IsString()
-  id: string;
-
-  @IsString()
-  content: string;
-
-  @IsString()
-  createdAt: string;
-
-  @IsOptional()
-  @IsString()
-  description?: string;
-}
+import { IsValidJsonbArray } from '../../../common/validators';
+import {
+  DocumentVersionSchema,
+  type DocumentVersion,
+} from '../../../common/schemas';
 
 export class CreateDocumentDto {
   @ApiProperty({ example: 'My Document' })
@@ -38,10 +27,13 @@ export class CreateDocumentDto {
   @IsString()
   parentId?: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({
+    description: 'Version history with id (UUID), content, createdAt (ISO datetime), and optional description',
+    example: [{ id: '550e8400-e29b-41d4-a716-446655440000', content: 'Content', createdAt: '2024-01-01T00:00:00Z', description: 'Initial' }],
+  })
   @IsOptional()
-  @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => VersionDto)
-  versions?: VersionDto[];
+  @IsValidJsonbArray(DocumentVersionSchema, {
+    message: 'versions: Each item must have id (UUID), content (string), createdAt (ISO datetime), and optional description',
+  })
+  versions?: DocumentVersion[];
 }
