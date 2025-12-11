@@ -5,5 +5,16 @@
   "testRegex": ".e2e-spec.ts$",
   "transform": {
     "^.+\\.(t|j)s$": "ts-jest"
-  }
+  },
+  "transformIgnorePatterns": [
+    "node_modules/(?!(uuid)/)"
+  ],
+  "moduleNameMapper": {
+    "^src/(.*)$": "<rootDir>/../src/$1"
+  },
+  "setupFilesAfterEnv": ["./setup.ts"],
+  "testTimeout": 30000,
+  "verbose": true,
+  "detectOpenHandles": true,
+  "forceExit": true
 }

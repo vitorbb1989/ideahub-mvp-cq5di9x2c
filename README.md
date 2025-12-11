@@ -1,5 +1,12 @@
 # IdeaHub MVP
 
+![CI](https://github.com/USER/ideahub-mvp/workflows/CI/badge.svg)
+![Coverage](https://codecov.io/gh/USER/ideahub-mvp/branch/main/graph/badge.svg)
+![License](https://img.shields.io/badge/license-Private-red.svg)
+![Node](https://img.shields.io/badge/node-20.x-green.svg)
+![NestJS](https://img.shields.io/badge/nestjs-11.x-red.svg)
+![TypeScript](https://img.shields.io/badge/typescript-5.x-blue.svg)
+
 Plataforma completa de gestao de ideias - capture, organize e acompanhe suas ideias desde a concepcao ate a execucao.
 
 ## Visao Geral
@@ -22,7 +29,12 @@ ideahub-mvp/
 │   └── package.json      # Dependencias frontend
 ├── backend/              # API NestJS
 │   ├── src/              # Codigo fonte
+│   │   ├── common/       # Recursos compartilhados (guards, filters, DTOs)
+│   │   ├── config/       # Configuracoes (database, JWT, data-source)
+│   │   ├── migrations/   # Migrations do TypeORM
+│   │   └── modules/      # Modulos (auth, users, ideas, documents, prompts)
 │   └── package.json      # Dependencias backend
+├── docs/                 # Documentacao tecnica
 └── README.md             # Este arquivo
 ```
 
@@ -39,11 +51,13 @@ ideahub-mvp/
 - **Recharts** - Graficos e visualizacoes
 
 ### Backend (`/backend`)
-- **NestJS** - Framework Node.js
-- **TypeORM** - ORM para PostgreSQL
-- **PostgreSQL** - Banco de dados relacional
-- **JWT** - Autenticacao
+- **NestJS 11** - Framework Node.js
+- **TypeORM 0.3** - ORM para PostgreSQL com migrations
+- **PostgreSQL 16** - Banco de dados relacional
+- **JWT** - Autenticacao com access + refresh tokens
 - **Swagger** - Documentacao da API
+- **Helmet** - Headers de seguranca
+- **@nestjs/throttler** - Rate limiting
 
 ## Pre-requisitos
 
@@ -106,6 +120,52 @@ VITE_API_URL=http://localhost:3000/api
 | `npm run start:prod` | Iniciar em producao |
 | `npm run lint` | Verificar codigo |
 | `npm run test` | Executar testes |
+| `npm run migration:generate` | Gerar migration |
+| `npm run migration:run` | Executar migrations |
+| `npm run migration:revert` | Reverter migration |
+| `npm run migration:show` | Mostrar status |
+| `npm run test` | Testes unitarios |
+| `npm run test:cov` | Testes com coverage |
+| `npm run test:e2e` | Testes E2E (requer PostgreSQL) |
+
+## CI/CD
+
+O projeto usa GitHub Actions para automacao de CI/CD.
+
+### Workflows
+
+| Workflow | Trigger | Jobs |
+|----------|---------|------|
+| **CI** | Push/PR em main, develop | lint, test, test-e2e, build, security |
+| **Deploy** | Push em main, manual | docker-build, deploy-staging, deploy-production |
+
+### Pipeline de CI
+
+```
+┌─────────┐    ┌──────────┐    ┌──────────┐    ┌─────────┐
+│  Lint   │───▶│Unit Tests│───▶│E2E Tests │───▶│  Build  │
+└─────────┘    └──────────┘    └──────────┘    └─────────┘
+                    │               │
+                    ▼               ▼
+              ┌──────────┐    ┌──────────┐
+              │ Coverage │    │PostgreSQL│
+              └──────────┘    └──────────┘
+```
+
+### Executar Testes Localmente
+
+```bash
+# Testes unitarios (143 testes)
+cd backend
+npm run test
+
+# Testes com coverage
+npm run test:cov
+
+# Testes E2E (requer Docker)
+docker-compose up -d
+npm run test:e2e
+```
 
 ## Funcionalidades
 
@@ -147,32 +207,35 @@ VITE_API_URL=http://localhost:3000/api
 
 ### Autenticacao
 - `POST /api/auth/register` - Criar conta
-- `POST /api/auth/login` - Autenticar
+- `POST /api/auth/login` - Autenticar (retorna access + refresh token)
+- `POST /api/auth/refresh` - Renovar tokens
+- `POST /api/auth/logout` - Invalidar refresh token
 
 ### Usuarios
 - `GET /api/users/me` - Perfil atual
 - `PATCH /api/users/me` - Atualizar perfil
 
-### Ideias
-- `GET /api/ideas` - Listar
+### Ideias (paginado)
+- `GET /api/ideas?page=1&limit=20` - Listar
 - `POST /api/ideas` - Criar
 - `GET /api/ideas/:id` - Obter
 - `PATCH /api/ideas/:id` - Atualizar
 - `DELETE /api/ideas/:id` - Remover
 
-### Documentos
-- `GET /api/documents` - Listar
+### Documentos (paginado)
+- `GET /api/documents?page=1&limit=20` - Listar
 - `POST /api/documents` - Criar
 - `PATCH /api/documents/:id` - Atualizar
 - `DELETE /api/documents/:id` - Remover
 - `POST /api/documents/:id/restore/:versionId` - Restaurar versao
 
-### Prompts
-- `GET /api/prompts` - Listar
+### Prompts (paginado)
+- `GET /api/prompts?page=1&limit=20` - Listar
 - `POST /api/prompts` - Criar
 - `PATCH /api/prompts/:id` - Atualizar
 - `DELETE /api/prompts/:id` - Remover
 - `POST /api/prompts/:id/favorite` - Toggle favorito
+- `POST /api/prompts/:id/use` - Incrementar uso
 
 ## Variaveis de Ambiente
 
@@ -184,15 +247,32 @@ VITE_API_URL=http://localhost:3000/api
 
 ### Backend (`backend/.env`)
 ```env
+# Database
 DATABASE_HOST=localhost
 DATABASE_PORT=5432
 DATABASE_USER=ideahub
 DATABASE_PASSWORD=ideahub_secret
 DATABASE_NAME=ideahub
-JWT_SECRET=your-super-secret-key
-JWT_EXPIRES_IN=7d
+
+# JWT
+JWT_SECRET=your-super-secret-key-change-in-production
+
+# App
 PORT=3000
+NODE_ENV=development
 ```
+
+## Seguranca Implementada
+
+| Recurso | Descricao |
+|---------|-----------|
+| Rate Limiting | 100 req/min global, 5/15min login, 3/hora registro |
+| Helmet | Headers de seguranca (CSP, HSTS, X-Frame-Options) |
+| JWT Refresh Tokens | Access token 15min, refresh token 7 dias com rotacao |
+| Ownership Validation | Usuarios so acessam seus proprios recursos |
+| Password Hashing | bcrypt com salt rounds 10 |
+| Input Validation | class-validator com whitelist |
+| Exception Handling | Filtros globais, stack traces ocultos em producao |
 
 ## Licenca
 

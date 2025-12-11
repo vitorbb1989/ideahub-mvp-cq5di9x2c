@@ -1,9 +1,9 @@
 # IdeaHub Backend - Especificacao Tecnica
 
 **Documento:** Especificacao Tecnica do Backend
-**Versao:** 1.0.0
+**Versao:** 2.0.0
 **Data:** 10 de Dezembro de 2025
-**Status:** MVP - Desenvolvimento
+**Status:** MVP - Fase 1 Concluida
 
 ---
 
@@ -11,15 +11,17 @@
 
 ### 1.1 Proposito
 
-O backend do IdeaHub e uma API REST desenvolvida para gerenciar o ciclo de vida completo de ideias, desde a captura inicial ate a conclusao. Oferece autenticacao segura, persistencia de dados e integracao com o frontend React.
+O backend do IdeaHub e uma API REST desenvolvida para gerenciar o ciclo de vida completo de ideias, desde a captura inicial ate a conclusao. Oferece autenticacao segura com refresh tokens, persistencia de dados com migrations, e integracao com o frontend React.
 
 ### 1.2 Escopo
 
-- Autenticacao e autorizacao de usuarios via JWT
-- CRUD completo para ideias com features avancadas
+- Autenticacao e autorizacao de usuarios via JWT com refresh tokens
+- CRUD completo para ideias com paginacao
 - Gestao de documentos com versionamento
 - Biblioteca de prompts para IA
 - Isolamento de dados por usuario (multi-tenant)
+- Rate limiting e protecao contra ataques
+- Headers de seguranca com Helmet
 
 ### 1.3 Contexto do Sistema
 
@@ -62,8 +64,10 @@ O backend do IdeaHub e uma API REST desenvolvida para gerenciar o ciclo de vida 
 |------------|--------|-----------|
 | Passport.js | 0.7.x | Middleware de autenticacao |
 | passport-jwt | 4.x | Estrategia JWT |
-| bcryptjs | 3.x | Hash de senhas |
+| bcryptjs | 3.x | Hash de senhas e refresh tokens |
 | @nestjs/jwt | 11.x | Geracao de tokens |
+| @nestjs/throttler | 6.x | Rate limiting |
+| helmet | 8.x | Headers de seguranca |
 
 ### 2.4 Validacao e Documentacao
 
@@ -94,6 +98,8 @@ O projeto segue a arquitetura modular do NestJS, baseada em:
 - **Services**: Logica de negocios
 - **Entities**: Modelos de dados (TypeORM)
 - **DTOs**: Data Transfer Objects para validacao
+- **Guards**: Protecao de rotas (JWT, Throttler)
+- **Filters**: Tratamento de excecoes
 
 ### 3.2 Estrutura de Diretorios
 
@@ -102,20 +108,36 @@ backend/
 ├── src/
 │   ├── config/                    # Configuracoes
 │   │   ├── database.config.ts     # Config do PostgreSQL
+│   │   ├── data-source.ts         # DataSource para CLI
 │   │   ├── jwt.config.ts          # Config do JWT
 │   │   └── index.ts               # Exportacoes
 │   │
 │   ├── common/                    # Recursos compartilhados
 │   │   ├── decorators/
 │   │   │   └── current-user.decorator.ts
-│   │   └── guards/
-│   │       └── jwt-auth.guard.ts
+│   │   ├── dto/
+│   │   │   └── pagination.dto.ts
+│   │   ├── filters/
+│   │   │   ├── all-exceptions.filter.ts
+│   │   │   ├── http-exception.filter.ts
+│   │   │   ├── throttler-exception.filter.ts
+│   │   │   └── index.ts
+│   │   ├── guards/
+│   │   │   └── jwt-auth.guard.ts
+│   │   └── interfaces/
+│   │       └── paginated-response.interface.ts
+│   │
+│   ├── migrations/                # Migrations do TypeORM
+│   │   ├── 1733840000000-InitialSchema.ts
+│   │   └── 1733841000000-AddRefreshToken.ts
 │   │
 │   ├── modules/                   # Modulos de dominio
 │   │   ├── auth/                  # Autenticacao
 │   │   │   ├── dto/
 │   │   │   │   ├── login.dto.ts
-│   │   │   │   └── register.dto.ts
+│   │   │   │   ├── register.dto.ts
+│   │   │   │   ├── refresh-token.dto.ts
+│   │   │   │   └── auth-response.dto.ts
 │   │   │   ├── strategies/
 │   │   │   │   └── jwt.strategy.ts
 │   │   │   ├── auth.controller.ts
@@ -170,7 +192,12 @@ Request HTTP
      │
      ▼
 ┌─────────────┐
-│   main.ts   │  Bootstrap, CORS, Validation Pipe
+│   main.ts   │  Bootstrap, CORS, Helmet, Validation Pipe
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
+│  Throttler  │  Rate limiting por IP
 └──────┬──────┘
        │
        ▼
@@ -185,7 +212,7 @@ Request HTTP
        │
        ▼
 ┌─────────────┐
-│  Service    │  Logica de negocios
+│  Service    │  Logica de negocios + ownership
 └──────┬──────┘
        │
        ▼
@@ -196,6 +223,11 @@ Request HTTP
        ▼
 ┌─────────────┐
 │ PostgreSQL  │  Persistencia
+└─────────────┘
+       │
+       ▼
+┌─────────────┐
+│  Filters    │  Tratamento de excecoes
 └─────────────┘
 ```
 
@@ -209,14 +241,15 @@ Request HTTP
 ┌─────────────────────────────────────────────────────────────┐
 │                          USERS                               │
 ├─────────────────────────────────────────────────────────────┤
-│ id          UUID         PK                                  │
-│ email       VARCHAR(255) UNIQUE NOT NULL                     │
-│ name        VARCHAR(255) NOT NULL                            │
-│ password    VARCHAR(255) NOT NULL (hashed)                   │
-│ avatar      VARCHAR(255) NULLABLE                            │
-│ isActive    BOOLEAN      DEFAULT true                        │
-│ createdAt   TIMESTAMP    AUTO                                │
-│ updatedAt   TIMESTAMP    AUTO                                │
+│ id           UUID         PK                                 │
+│ email        VARCHAR(255) UNIQUE NOT NULL                    │
+│ name         VARCHAR(255) NOT NULL                           │
+│ password     VARCHAR(255) NOT NULL (hashed)                  │
+│ refreshToken VARCHAR(255) NULLABLE (hashed, select: false)   │
+│ avatar       VARCHAR(255) NULLABLE                           │
+│ isActive     BOOLEAN      DEFAULT true                       │
+│ createdAt    TIMESTAMP    AUTO                               │
+│ updatedAt    TIMESTAMP    AUTO                               │
 └─────────────────────────────────────────────────────────────┘
                               │
            ┌──────────────────┼──────────────────┐
@@ -267,6 +300,11 @@ export class User {
   @Column()
   @Exclude()  // Nunca exposto nas respostas
   password: string;
+
+  // Hashed refresh token for secure token rotation
+  @Column({ nullable: true, select: false })
+  @Exclude()
+  refreshToken: string | null;
 
   @Column({ nullable: true })
   avatar: string;
@@ -370,10 +408,12 @@ versions: {
 
 ### 5.1 Autenticacao (`/api/auth`)
 
-| Metodo | Endpoint | Descricao | Auth |
-|--------|----------|-----------|------|
-| POST | `/register` | Criar nova conta | Nao |
-| POST | `/login` | Autenticar usuario | Nao |
+| Metodo | Endpoint | Descricao | Auth | Rate Limit |
+|--------|----------|-----------|------|------------|
+| POST | `/register` | Criar nova conta | Nao | 3/hora |
+| POST | `/login` | Autenticar usuario | Nao | 5/15min |
+| POST | `/refresh` | Renovar tokens | Nao | 20/15min |
+| POST | `/logout` | Invalidar refresh token | Sim | Global |
 
 **Request - Register:**
 ```json
@@ -387,16 +427,32 @@ versions: {
 **Response - Login/Register:**
 ```json
 {
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "a1b2c3d4e5f6...",
+  "expiresIn": 900,
   "user": {
     "id": "uuid",
     "email": "user@example.com",
     "name": "John Doe",
-    "avatar": null,
-    "isActive": true,
-    "createdAt": "2025-12-10T00:00:00.000Z",
-    "updatedAt": "2025-12-10T00:00:00.000Z"
-  },
-  "accessToken": "eyJhbGciOiJIUzI1NiIs..."
+    "avatar": null
+  }
+}
+```
+
+**Request - Refresh:**
+```json
+{
+  "userId": "uuid",
+  "refreshToken": "a1b2c3d4e5f6..."
+}
+```
+
+**Response - Refresh:**
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "x1y2z3...",
+  "expiresIn": 900
 }
 ```
 
@@ -411,7 +467,7 @@ versions: {
 
 | Metodo | Endpoint | Descricao | Auth |
 |--------|----------|-----------|------|
-| GET | `/` | Listar todas as ideias do usuario | Sim |
+| GET | `/?page=1&limit=20` | Listar ideias (paginado) | Sim |
 | POST | `/` | Criar nova ideia | Sim |
 | GET | `/:id` | Obter ideia especifica | Sim |
 | PATCH | `/:id` | Atualizar ideia | Sim |
@@ -434,11 +490,26 @@ versions: {
 }
 ```
 
+**Response - List (paginado):**
+```json
+{
+  "data": [...],
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  }
+}
+```
+
 ### 5.4 Documentos (`/api/documents`)
 
 | Metodo | Endpoint | Descricao | Auth |
 |--------|----------|-----------|------|
-| GET | `/` | Listar documentos | Sim |
+| GET | `/?page=1&limit=20` | Listar documentos (paginado) | Sim |
 | POST | `/` | Criar documento | Sim |
 | GET | `/:id` | Obter documento | Sim |
 | PATCH | `/:id` | Atualizar documento | Sim |
@@ -449,7 +520,7 @@ versions: {
 
 | Metodo | Endpoint | Descricao | Auth |
 |--------|----------|-----------|------|
-| GET | `/` | Listar prompts | Sim |
+| GET | `/?page=1&limit=20` | Listar prompts (paginado) | Sim |
 | POST | `/` | Criar prompt | Sim |
 | GET | `/:id` | Obter prompt | Sim |
 | PATCH | `/:id` | Atualizar prompt | Sim |
@@ -461,63 +532,132 @@ versions: {
 
 ## 6. SEGURANCA
 
-### 6.1 Autenticacao JWT
+### 6.1 Autenticacao JWT com Refresh Tokens
 
-**Fluxo:**
+**Fluxo Completo:**
 ```
 1. Usuario envia credenciais (login)
-2. Backend valida e gera JWT
-3. Frontend armazena token
-4. Requisicoes subsequentes incluem: Authorization: Bearer <token>
-5. Guard valida token em cada requisicao protegida
+2. Backend valida e gera access token (15min) + refresh token (random 256-bit)
+3. Refresh token e armazenado hasheado no banco
+4. Frontend armazena ambos os tokens
+5. Requisicoes incluem: Authorization: Bearer <access_token>
+6. Quando access token expira, frontend usa /refresh com refresh token
+7. Backend valida refresh token, gera novos tokens (rotacao)
+8. Logout invalida o refresh token no banco
 ```
 
-**Configuracao do Token:**
+**Configuracao do Access Token:**
 ```typescript
 {
   secret: process.env.JWT_SECRET,
-  expiresIn: '7d'
+  expiresIn: '15m'  // 15 minutos
 }
 ```
 
-**Payload do Token:**
+**Payload do Access Token:**
 ```json
 {
   "sub": "user-uuid",
   "email": "user@example.com",
   "iat": 1733860800,
-  "exp": 1734465600
+  "exp": 1733861700
 }
 ```
 
-### 6.2 Hash de Senhas
+**Refresh Token:**
+- 256 bits de aleatoriedade criptografica
+- Armazenado como hash bcrypt no banco
+- Rotacionado a cada uso (impede reuso)
+- Deteccao de ataque: reuso invalida todos os tokens
+
+### 6.2 Hash de Senhas e Tokens
 
 - Algoritmo: bcrypt
 - Salt rounds: 10
-- Senha nunca armazenada em texto plano
+- Senha e refresh token nunca armazenados em texto plano
 
 ```typescript
 // Hash ao criar usuario
 const hashedPassword = await bcrypt.hash(password, 10);
 
-// Validacao no login
-const isValid = await bcrypt.compare(inputPassword, storedHash);
+// Hash do refresh token
+const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+
+// Validacao
+const isValid = await bcrypt.compare(input, storedHash);
 ```
 
-### 6.3 Isolamento de Dados
+### 6.3 Rate Limiting
 
-Todas as queries filtram por `userId`:
-
+**Configuracao Multi-tier:**
 ```typescript
-async findAll(userId: string): Promise<Idea[]> {
-  return this.ideasRepository.find({
-    where: { userId },  // Filtra por usuario
-    order: { updatedAt: 'DESC' },
-  });
+ThrottlerModule.forRoot([
+  { name: 'short', ttl: 1000, limit: 3 },    // 3 req/segundo
+  { name: 'medium', ttl: 10000, limit: 20 }, // 20 req/10 segundos
+  { name: 'long', ttl: 60000, limit: 100 },  // 100 req/minuto
+])
+```
+
+**Limites Especificos:**
+
+| Endpoint | Limite | Motivo |
+|----------|--------|--------|
+| `/auth/register` | 3/hora | Previne criacao em massa de contas |
+| `/auth/login` | 5/15min | Previne brute force |
+| `/auth/refresh` | 20/15min | Previne token enumeration |
+
+**Resposta 429:**
+```json
+{
+  "statusCode": 429,
+  "message": "Too many requests. Please try again later.",
+  "error": "Too Many Requests",
+  "retryAfter": 60
 }
 ```
 
-### 6.4 Validacao de Entrada
+### 6.4 Headers de Seguranca (Helmet)
+
+```typescript
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
+```
+
+Headers adicionados:
+- Content-Security-Policy
+- X-Content-Type-Options
+- X-Frame-Options
+- X-XSS-Protection
+- Strict-Transport-Security
+
+### 6.5 Isolamento de Dados (Ownership)
+
+Todas as queries filtram por `userId` na clausula WHERE:
+
+```typescript
+async findOne(userId: string, id: string): Promise<Idea> {
+  const idea = await this.ideasRepository.findOne({
+    where: { id, userId },  // Filtra por usuario E id
+  });
+  if (!idea) {
+    throw new NotFoundException('Idea not found');
+  }
+  return idea;
+}
+```
+
+### 6.6 Validacao de Entrada
 
 DTOs com class-validator:
 
@@ -550,7 +690,32 @@ app.useGlobalPipes(
 );
 ```
 
-### 6.5 CORS
+### 6.7 Exception Filters
+
+**Filtro HTTP (HttpExceptionFilter):**
+- Trata todas as HttpException do NestJS
+- Formato padronizado de resposta
+- Inclui requestId para rastreamento
+- Oculta stack traces em producao
+
+**Filtro Geral (AllExceptionsFilter):**
+- Catch-all para erros nao tratados
+- Trata erros do TypeORM (QueryFailedError, EntityNotFoundError)
+- Retorna 500 para erros desconhecidos
+
+**Resposta de Erro Padrao:**
+```json
+{
+  "statusCode": 400,
+  "message": "Validation failed",
+  "error": "Bad Request",
+  "timestamp": "2025-12-10T12:00:00.000Z",
+  "path": "/api/ideas",
+  "requestId": "abc123"
+}
+```
+
+### 6.8 CORS
 
 ```typescript
 app.enableCors({
@@ -575,7 +740,6 @@ DATABASE_NAME=ideahub
 
 # JWT
 JWT_SECRET=your-super-secret-key-change-in-production
-JWT_EXPIRES_IN=7d
 
 # Aplicacao
 PORT=3000
@@ -623,58 +787,100 @@ volumes:
 
 ---
 
-## 8. PONTOS DE ATENCAO E MELHORIAS SUGERIDAS
+## 8. MIGRATIONS
 
-### 8.1 Seguranca
+### 8.1 Configuracao
 
-| Item | Status Atual | Recomendacao |
-|------|--------------|--------------|
-| `synchronize: true` | Ativo | Desativar em producao, usar migrations |
-| Rate Limiting | Nao implementado | Adicionar @nestjs/throttler |
-| Refresh Token | Nao implementado | Implementar rotacao de tokens |
-| Helmet | Nao implementado | Adicionar headers de seguranca |
-| Input Sanitization | Basica | Adicionar sanitizacao contra XSS |
+O sistema usa TypeORM migrations para gerenciamento do schema:
 
-### 8.2 Performance
+```typescript
+// src/config/data-source.ts
+export const dataSourceOptions: DataSourceOptions = {
+  type: 'postgres',
+  host: process.env.DATABASE_HOST || 'localhost',
+  port: parseInt(process.env.DATABASE_PORT || '5432'),
+  username: process.env.DATABASE_USER || 'ideahub',
+  password: process.env.DATABASE_PASSWORD || 'ideahub_secret',
+  database: process.env.DATABASE_NAME || 'ideahub',
+  entities: [__dirname + '/../modules/**/entities/*.entity{.ts,.js}'],
+  migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+  synchronize: false,  // SEMPRE false em producao
+};
+```
 
-| Item | Status Atual | Recomendacao |
-|------|--------------|--------------|
-| Paginacao | Nao implementado | Adicionar limit/offset nos endpoints de listagem |
-| Cache | Nao implementado | Adicionar Redis para cache de queries |
-| Indices | Automaticos | Criar indices customizados para campos filtrados |
-| Compressao | Nao implementado | Adicionar compression middleware |
+### 8.2 Comandos
 
-### 8.3 Observabilidade
+```bash
+# Gerar nova migration
+npm run migration:generate -- src/migrations/NomeDaMigration
 
-| Item | Status Atual | Recomendacao |
-|------|--------------|--------------|
-| Logging | console.log basico | Implementar logger estruturado (Winston/Pino) |
-| Health Check | Nao implementado | Adicionar @nestjs/terminus |
-| Metricas | Nao implementado | Adicionar Prometheus/OpenTelemetry |
-| Tracing | Nao implementado | Implementar request tracing |
+# Executar migrations pendentes
+npm run migration:run
 
-### 8.4 Testes
+# Reverter ultima migration
+npm run migration:revert
 
-| Item | Status Atual | Recomendacao |
-|------|--------------|--------------|
-| Testes unitarios | Nao implementados | Adicionar testes para services |
-| Testes E2E | Estrutura criada | Implementar testes de integracao |
-| Coverage | 0% | Meta minima: 80% |
+# Mostrar status
+npm run migration:show
+```
 
-### 8.5 Arquitetura
+### 8.3 Migrations Existentes
 
-| Item | Status Atual | Recomendacao |
-|------|--------------|--------------|
-| Soft Delete | Nao implementado | Adicionar para ideias arquivadas |
-| Auditoria | Parcial (timeline) | Expandir para todas as entidades |
-| File Upload | URL externa | Implementar storage (S3/local) |
-| Busca | Filtro simples | Adicionar full-text search |
+| Migration | Descricao |
+|-----------|-----------|
+| 1733840000000-InitialSchema | Schema inicial (users, ideas, documents, prompts) |
+| 1733841000000-AddRefreshToken | Adiciona coluna refreshToken em users |
 
 ---
 
-## 9. COMANDOS E OPERACOES
+## 9. PAGINACAO
 
-### 9.1 Desenvolvimento
+### 9.1 Implementacao
+
+Todos os endpoints de listagem suportam paginacao:
+
+```typescript
+// Query params
+@Query() paginationQuery: PaginationQueryDto
+
+// DTO
+export class PaginationQueryDto {
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number = 1;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number = 20;
+}
+```
+
+### 9.2 Resposta Padrao
+
+```json
+{
+  "data": [...],
+  "meta": {
+    "total": 100,
+    "page": 1,
+    "limit": 20,
+    "totalPages": 5,
+    "hasNextPage": true,
+    "hasPrevPage": false
+  }
+}
+```
+
+---
+
+## 10. COMANDOS E OPERACOES
+
+### 10.1 Desenvolvimento
 
 ```bash
 # Instalar dependencias
@@ -682,6 +888,9 @@ npm install
 
 # Iniciar banco de dados
 docker-compose up -d
+
+# Executar migrations
+npm run migration:run
 
 # Iniciar em desenvolvimento (hot reload)
 npm run start:dev
@@ -693,7 +902,7 @@ npm run build
 npm run start:prod
 ```
 
-### 9.2 Qualidade de Codigo
+### 10.2 Qualidade de Codigo
 
 ```bash
 # Lint
@@ -709,7 +918,7 @@ npm run test:cov
 npm run test:e2e
 ```
 
-### 9.3 URLs de Acesso
+### 10.3 URLs de Acesso
 
 | Servico | URL |
 |---------|-----|
@@ -720,15 +929,58 @@ npm run test:e2e
 
 ---
 
-## 10. HISTORICO DE VERSOES DO DOCUMENTO
+## 11. STATUS DE IMPLEMENTACAO
+
+### 11.1 Seguranca
+
+| Item | Status | Observacao |
+|------|--------|------------|
+| Migrations | Implementado | synchronize: false em producao |
+| Rate Limiting | Implementado | @nestjs/throttler multi-tier |
+| Refresh Tokens | Implementado | Rotacao, hash bcrypt |
+| Helmet | Implementado | CSP configurado para Swagger |
+| Input Validation | Implementado | class-validator com whitelist |
+| Exception Handling | Implementado | Filtros globais |
+| Ownership Validation | Implementado | userId em todas as queries |
+
+### 11.2 Performance
+
+| Item | Status | Recomendacao |
+|------|--------|--------------|
+| Paginacao | Implementado | Limite maximo 100 |
+| Cache | Nao implementado | Adicionar Redis para cache |
+| Indices | Automaticos | Criar indices customizados |
+| Compressao | Nao implementado | Adicionar compression middleware |
+
+### 11.3 Observabilidade
+
+| Item | Status | Recomendacao |
+|------|--------|--------------|
+| Logging | Basico | Implementar Winston/Pino |
+| Health Check | Nao implementado | Adicionar @nestjs/terminus |
+| Metricas | Nao implementado | Adicionar Prometheus |
+| Tracing | Nao implementado | Request IDs implementados |
+
+### 11.4 Testes
+
+| Item | Status | Meta |
+|------|--------|------|
+| Testes unitarios | Nao implementados | 80% coverage |
+| Testes E2E | Estrutura criada | Implementar |
+| Coverage | 0% | Meta: 80% |
+
+---
+
+## 12. HISTORICO DE VERSOES DO DOCUMENTO
 
 | Versao | Data | Autor | Descricao |
 |--------|------|-------|-----------|
 | 1.0.0 | 10/12/2025 | Claude Code | Versao inicial |
+| 2.0.0 | 10/12/2025 | Claude Code | Fase 1 - Seguranca e producao |
 
 ---
 
-## 11. GLOSSARIO
+## 13. GLOSSARIO
 
 | Termo | Definicao |
 |-------|-----------|
@@ -741,7 +993,10 @@ npm run test:e2e
 | Module | Unidade de organizacao no NestJS |
 | Entity | Classe que representa uma tabela no banco |
 | Repository | Padrao de acesso a dados |
+| Migration | Script de alteracao do schema do banco |
+| Throttler | Sistema de rate limiting |
+| Refresh Token | Token de longa duracao para renovar access token |
 
 ---
 
-*Documento gerado automaticamente. Para atualizacoes, consulte o repositorio do projeto.*
+*Documento atualizado apos conclusao da Fase 1 de producao.*

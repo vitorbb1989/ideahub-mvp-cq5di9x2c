@@ -14,7 +14,25 @@
       "Bash(git add:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nfeat: Implement NestJS backend with PostgreSQL\n\n- Add complete backend structure with NestJS framework\n- Implement JWT authentication (login/register)\n- Create CRUD endpoints for Ideas, Documents, Prompts, Users\n- Add TypeORM entities with PostgreSQL support\n- Configure Docker Compose for PostgreSQL + pgAdmin\n- Add Swagger API documentation\n- Create API client for frontend integration\n- Update authService to support backend mode\n\nModules implemented:\n- Auth: JWT-based authentication\n- Users: Profile management\n- Ideas: Full CRUD with priority scoring\n- Documents: CRUD with version control\n- Prompts: CRUD with favorites and usage tracking\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(git push:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" status)",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" add docs/BACKEND_TECHNICAL_SPEC.md)",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" commit -m \"$(cat <<''EOF''\ndocs: Add backend technical specification document\n\nAdd comprehensive technical documentation for specialist evaluation:\n- Architecture overview with diagrams\n- Complete data model (User, Idea, Document, Prompt entities)\n- API endpoints documentation (19 endpoints)\n- Security implementation details (JWT, bcrypt)\n- Configuration and environment setup\n- Improvement suggestions for production readiness\n- Glossary and version history\n\nDocument version: 1.0.0\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" push)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(timeout 5 npm run start:dev:*)",
+      "Bash(npm run test:*)",
+      "Bash(npm run test:cov:*)",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" log --oneline -30)",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" log --oneline -50)",
+      "Bash(dir \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" /s /b)",
+      "Bash(findstr:*)",
+      "Bash(git -C \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\" log --oneline -5)",
+      "Bash(npm run test:e2e:*)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker compose:*)",
+      "Bash(dir \"C:\\Users\\Usuario\\Desktop\\ideahub-mvp-cq5di9x2c\\.github\\workflows\")"
     ]
   }
 }

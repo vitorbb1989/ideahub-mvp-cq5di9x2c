@@ -3,7 +3,9 @@ import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
-import { databaseConfig, jwtConfig } from './config';
+import { CacheModule } from '@nestjs/cache-manager';
+import { redisStore } from 'cache-manager-redis-yet';
+import { databaseConfig, jwtConfig, redisConfig } from './config';
 import { LoggerModule } from './common/logger';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
@@ -18,7 +20,35 @@ import { PromptsModule } from './modules/prompts/prompts.module';
     LoggerModule,
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, jwtConfig],
+      load: [databaseConfig, jwtConfig, redisConfig],
+    }),
+    // Redis cache configuration - improves performance for frequent queries
+    CacheModule.registerAsync({
+      isGlobal: true,
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => {
+        const isTest = process.env.NODE_ENV === 'test';
+        const redisEnabled = configService.get('redis.enabled');
+
+        // Use in-memory cache for tests or when Redis is disabled
+        if (isTest || !redisEnabled) {
+          return {
+            ttl: 60 * 1000, // 1 minute default
+          };
+        }
+
+        // Use Redis for production/development
+        return {
+          store: await redisStore({
+            socket: {
+              host: configService.get('redis.host'),
+              port: configService.get('redis.port'),
+            },
+            ttl: 60 * 1000, // 1 minute default TTL
+          }),
+        };
+      },
+      inject: [ConfigService],
     }),
     // Rate limiting configuration - protects against brute force and DDoS
     ThrottlerModule.forRoot([

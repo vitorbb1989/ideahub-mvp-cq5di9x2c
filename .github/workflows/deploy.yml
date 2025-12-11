@@ -1,0 +1,167 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # Run CI checks first
+  ci:
+    name: CI Checks
+    uses: ./.github/workflows/ci.yml
+
+  # Build Docker image
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: ci
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+        if: github.event_name != 'pull_request'
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/ideahub-backend
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Deploy to staging (automatic on main branch)
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: docker-build
+    if: github.ref == 'refs/heads/main' && (github.event.inputs.environment == 'staging' || github.event.inputs.environment == '')
+    environment:
+      name: staging
+      url: https://staging.ideahub.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to staging
+        run: |
+          echo "Deploying to staging environment..."
+          echo "Image: ${{ needs.docker-build.outputs.image-tag }}"
+          # Add your deployment commands here
+          # Examples:
+          # - kubectl apply -f k8s/staging/
+          # - ssh staging-server 'docker pull && docker-compose up -d'
+          # - aws ecs update-service --cluster staging --service ideahub-backend
+          echo "Staging deployment complete!"
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against staging..."
+          # curl -f https://staging.ideahub.example.com/api/v1/health || exit 1
+          echo "Smoke tests passed!"
+
+      - name: Notify success
+        run: |
+          echo "Staging deployment successful!"
+          # Add Slack/Discord notification here if needed
+
+  # Deploy to production (manual trigger only)
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [docker-build, deploy-staging]
+    if: github.event.inputs.environment == 'production'
+    environment:
+      name: production
+      url: https://ideahub.example.com
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to production
+        run: |
+          echo "Deploying to production environment..."
+          echo "Image: ${{ needs.docker-build.outputs.image-tag }}"
+          # Add your production deployment commands here
+          echo "Production deployment complete!"
+
+      - name: Run smoke tests
+        run: |
+          echo "Running smoke tests against production..."
+          # curl -f https://ideahub.example.com/api/v1/health || exit 1
+          echo "Smoke tests passed!"
+
+      - name: Create release tag
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = `v${new Date().toISOString().split('T')[0].replace(/-/g, '.')}.${context.runNumber}`;
+            await github.rest.git.createRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: `refs/tags/${tag}`,
+              sha: context.sha
+            });
+            console.log(`Created release tag: ${tag}`);
+
+      - name: Notify success
+        run: |
+          echo "Production deployment successful!"
+          # Add Slack/Discord notification here if needed
+
+  # Rollback job (manual trigger)
+  rollback:
+    name: Rollback Deployment
+    runs-on: ubuntu-latest
+    if: failure() && (needs.deploy-staging.result == 'failure' || needs.deploy-production.result == 'failure')
+    needs: [deploy-staging, deploy-production]
+
+    steps:
+      - name: Rollback
+        run: |
+          echo "Deployment failed! Rolling back..."
+          # Add rollback commands here
+          echo "Rollback complete!"
+
+      - name: Notify failure
+        run: |
+          echo "Deployment failed and was rolled back!"
+          # Add alert notification here

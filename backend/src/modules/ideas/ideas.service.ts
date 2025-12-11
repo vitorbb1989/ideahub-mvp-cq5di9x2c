@@ -1,6 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { Idea } from './entities/idea.entity';
 import { Document } from '../documents/entities/document.entity';
 import { CreateIdeaDto } from './dto/create-idea.dto';
@@ -12,12 +14,19 @@ import {
 } from '../../common/interfaces';
 import { v4 as uuidv4 } from 'uuid';
 
+// Cache TTL constants (in milliseconds)
+const CACHE_TTL = {
+  LIST: 3 * 60 * 1000, // 3 minutes for list queries (Kanban needs fresher data)
+  SINGLE: 5 * 60 * 1000, // 5 minutes for single item
+};
+
 @Injectable()
 export class IdeasService {
   constructor(
     @InjectRepository(Idea)
     private ideasRepository: Repository<Idea>,
     private dataSource: DataSource,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   async create(userId: string, createIdeaDto: CreateIdeaDto): Promise<Idea> {
@@ -30,7 +39,12 @@ export class IdeasService {
       ),
     });
 
-    return this.ideasRepository.save(idea);
+    const saved = await this.ideasRepository.save(idea);
+
+    // Invalidate user's list cache after creating new idea
+    await this.invalidateUserCache(userId);
+
+    return saved;
   }
 
   async findAll(
@@ -38,6 +52,14 @@ export class IdeasService {
     paginationQuery: PaginationQueryDto,
   ): Promise<PaginatedResponse<Idea>> {
     const { page = 1, limit = 20 } = paginationQuery;
+    const cacheKey = this.getCacheKey('list', userId, page, limit);
+
+    // Try to get from cache first
+    const cached = await this.cacheManager.get<PaginatedResponse<Idea>>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const skip = (page - 1) * limit;
 
     // TypeORM automatically filters out soft-deleted records (where deletedAt IS NOT NULL)
@@ -48,10 +70,23 @@ export class IdeasService {
       take: limit,
     });
 
-    return createPaginatedResponse(data, total, page, limit);
+    const result = createPaginatedResponse(data, total, page, limit);
+
+    // Cache the result
+    await this.cacheManager.set(cacheKey, result, CACHE_TTL.LIST);
+
+    return result;
   }
 
   async findOne(userId: string, id: string): Promise<Idea> {
+    const cacheKey = this.getCacheKey('single', userId, id);
+
+    // Try cache first
+    const cached = await this.cacheManager.get<Idea>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // TypeORM automatically excludes soft-deleted records
     const idea = await this.ideasRepository.findOne({
       where: { id, userId },
@@ -61,6 +96,9 @@ export class IdeasService {
       throw new NotFoundException('Idea not found');
     }
 
+    // Cache the result
+    await this.cacheManager.set(cacheKey, idea, CACHE_TTL.SINGLE);
+
     return idea;
   }
 
@@ -69,7 +107,14 @@ export class IdeasService {
     id: string,
     updateIdeaDto: UpdateIdeaDto,
   ): Promise<Idea> {
-    const idea = await this.findOne(userId, id);
+    // Fetch fresh from DB for update
+    const idea = await this.ideasRepository.findOne({
+      where: { id, userId },
+    });
+
+    if (!idea) {
+      throw new NotFoundException('Idea not found');
+    }
 
     if (updateIdeaDto.impact !== undefined || updateIdeaDto.effort !== undefined) {
       updateIdeaDto['priorityScore'] = this.calculatePriorityScore(
@@ -79,7 +124,12 @@ export class IdeasService {
     }
 
     Object.assign(idea, updateIdeaDto);
-    return this.ideasRepository.save(idea);
+    const updated = await this.ideasRepository.save(idea);
+
+    // Invalidate caches
+    await this.invalidateIdeaCache(userId, id);
+
+    return updated;
   }
 
   /**
@@ -87,9 +137,19 @@ export class IdeasService {
    * The idea can be restored later using the restore method
    */
   async remove(userId: string, id: string): Promise<void> {
-    const idea = await this.findOne(userId, id);
+    const idea = await this.ideasRepository.findOne({
+      where: { id, userId },
+    });
+
+    if (!idea) {
+      throw new NotFoundException('Idea not found');
+    }
+
     // softRemove sets deletedAt = current timestamp
     await this.ideasRepository.softRemove(idea);
+
+    // Invalidate caches
+    await this.invalidateIdeaCache(userId, id);
   }
 
   /**
@@ -114,8 +174,15 @@ export class IdeasService {
     // Restore the record by clearing deletedAt
     await this.ideasRepository.restore(id);
 
-    // Return the restored idea
-    return this.findOne(userId, id);
+    // Invalidate caches since idea is back
+    await this.invalidateUserCache(userId);
+
+    // Return the restored idea (fetch fresh from DB)
+    const restored = await this.ideasRepository.findOne({
+      where: { id, userId },
+    });
+
+    return restored!;
   }
 
   /**
@@ -280,13 +347,59 @@ export class IdeasService {
 
       await queryRunner.commitTransaction();
 
-      // Return the restored idea
-      return this.findOne(userId, id);
+      // Invalidate caches
+      await this.invalidateUserCache(userId);
+
+      // Return the restored idea (fetch fresh)
+      const restored = await this.ideasRepository.findOne({
+        where: { id, userId },
+      });
+      return restored!;
     } catch (err) {
       await queryRunner.rollbackTransaction();
       throw err;
     } finally {
       await queryRunner.release();
     }
+  }
+
+  // ==================== Cache Helper Methods ====================
+
+  /**
+   * Generate cache key for ideas
+   */
+  private getCacheKey(type: 'list' | 'single', userId: string, ...args: (string | number)[]): string {
+    return `ideas:${type}:${userId}:${args.join(':')}`;
+  }
+
+  /**
+   * Invalidate all caches for a specific idea
+   */
+  private async invalidateIdeaCache(userId: string, ideaId: string): Promise<void> {
+    // Delete single idea cache
+    const singleKey = this.getCacheKey('single', userId, ideaId);
+    await this.cacheManager.del(singleKey);
+
+    // Invalidate all list caches for this user
+    await this.invalidateUserCache(userId);
+  }
+
+  /**
+   * Invalidate all list caches for a user
+   */
+  private async invalidateUserCache(userId: string): Promise<void> {
+    // Delete common pagination combinations
+    const commonPages = [1, 2, 3, 4, 5];
+    const commonLimits = [10, 20, 50, 100];
+
+    const keysToDelete: string[] = [];
+
+    for (const page of commonPages) {
+      for (const limit of commonLimits) {
+        keysToDelete.push(this.getCacheKey('list', userId, page, limit));
+      }
+    }
+
+    await Promise.all(keysToDelete.map(key => this.cacheManager.del(key)));
   }
 }

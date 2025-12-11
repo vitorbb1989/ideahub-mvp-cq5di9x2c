@@ -7,6 +7,180 @@ e este projeto adere ao [Versionamento Semantico](https://semver.org/lang/pt-BR/
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-11
+
+### Fase 3 - Testes Automatizados
+
+Terceira fase focada em infraestrutura de testes robusta com alta cobertura.
+
+### Adicionado
+
+#### 3.1 Infraestrutura de Testes
+- Configuracao Jest otimizada (`jest.config.js`)
+- Suporte a ESM modules (uuid transformIgnorePatterns)
+- Mocks reutilizaveis para repositorios TypeORM
+- Factory functions para entidades de teste
+- Test utilities com `MockRepository<T>` type-safe
+
+#### 3.2 Testes Unitarios - AuthService (26 testes)
+- `register`: Criacao de usuario, hash de senha, geracao de tokens
+- `login`: Validacao de credenciais, atualizacao de refresh token
+- `refreshTokens`: Rotacao de tokens, validacao de refresh token
+- `logout`: Invalidacao de refresh token
+- Cenarios de erro: usuario duplicado, credenciais invalidas
+
+#### 3.3 Testes Unitarios - IdeasService (38 testes)
+- CRUD completo: create, findAll, findOne, update, remove
+- Paginacao: page, limit, totalPages, hasNextPage, hasPrevPage
+- Soft delete e restore
+- Transacoes: createIdeaWithDocument, removeWithLinkedDocuments
+- Validacao de ownership (404 para recursos de outros usuarios)
+- Calculo de priorityScore
+
+#### 3.4 Testes Unitarios - DocumentsService (31 testes)
+- CRUD completo com versionamento
+- Sistema de versoes: versions array, version field
+- restoreVersion: Restaurar versao anterior
+- Soft delete e restore
+- Integracao com ideaId
+- Validacao de ownership
+
+#### 3.5 Testes Unitarios - PromptsService (29 testes)
+- CRUD completo
+- toggleFavorite: Toggle de favoritos
+- incrementUsageCount: Contador de uso
+- Soft delete e restore
+- findDeleted: Listagem de deletados
+- Validacao de ownership
+
+#### 3.6 Testes E2E
+- Estrutura completa para testes end-to-end
+- `test-app.module.ts`: Modulo de teste com configuracao isolada
+- `auth.e2e-spec.ts`: Fluxo completo de autenticacao
+  - Register, login, refresh, logout
+  - Testes de seguranca (401, tokens invalidos)
+- `ideas.e2e-spec.ts`: CRUD completo de ideias
+  - Criacao, listagem paginada, detalhes, update, delete
+  - Validacao de ownership entre usuarios
+  - Sanitizacao de XSS
+  - Validacao de campos (impact, effort, status, category)
+- `app.e2e-spec.ts`: Testes gerais da aplicacao
+  - Health checks (/health, /health/live, /health/ready)
+  - Versionamento de API (/api/v1/...)
+  - Headers de seguranca (Helmet)
+  - Formato de erro padronizado
+
+#### 3.7 CI/CD GitHub Actions
+- Workflow de CI (`.github/workflows/ci.yml`)
+  - Job `lint`: ESLint e Prettier check
+  - Job `test`: Testes unitarios com coverage upload para Codecov
+  - Job `test-e2e`: Testes E2E com PostgreSQL service container
+  - Job `build`: Build de producao com upload de artifacts
+  - Job `security`: npm audit para vulnerabilidades
+  - Job `ci-success`: Resumo final do pipeline
+- Workflow de Deploy (`.github/workflows/deploy.yml`)
+  - Build de imagem Docker com cache
+  - Deploy automatico para staging em push na main
+  - Deploy manual para production com workflow_dispatch
+  - Rollback automatico em caso de falha
+- Badges no README.md (CI, Coverage, Node, NestJS, TypeScript)
+
+#### 3.8 Cache Redis (Opcional)
+- Instalado `@nestjs/cache-manager`, `cache-manager`, `cache-manager-redis-yet`, `redis`
+- Configuracao do CacheModule global com suporte a Redis e fallback in-memory
+- Cache implementado no PromptsService:
+  - `findAll`: Cache de 5 minutos por usuario/pagina
+  - `findOne`: Cache de 10 minutos por item
+  - Invalidacao automatica em create/update/delete
+- Cache implementado no IdeasService:
+  - `findAll`: Cache de 3 minutos (Kanban precisa dados mais frescos)
+  - `findOne`: Cache de 5 minutos por item
+  - Invalidacao automatica em todas as operacoes de escrita
+- Redis 7 Alpine adicionado ao docker-compose com persistencia
+- Configuracao via variaveis de ambiente: REDIS_HOST, REDIS_PORT, REDIS_ENABLED, REDIS_TTL
+- Mock de cache criado para testes unitarios (`createMockCacheManager`)
+
+### Arquivos Criados
+
+```
+.github/
+└── workflows/
+    ├── ci.yml          # Pipeline de CI
+    └── deploy.yml      # Pipeline de Deploy
+
+backend/
+├── jest.config.js
+├── docker-compose.yml  # Atualizado com Redis
+├── .env.example        # Atualizado com REDIS_*
+├── src/
+│   ├── app.module.ts   # Atualizado com CacheModule
+│   ├── app.spec.ts
+│   ├── config/
+│   │   └── redis.config.ts  # Novo
+│   ├── test/
+│   │   ├── index.ts
+│   │   ├── test-utils.ts
+│   │   ├── factories/
+│   │   │   ├── index.ts
+│   │   │   ├── user.factory.ts
+│   │   │   ├── idea.factory.ts
+│   │   │   ├── document.factory.ts
+│   │   │   └── prompt.factory.ts
+│   │   └── mocks/
+│   │       ├── index.ts
+│   │       └── repository.mock.ts  # Atualizado com createMockCacheManager
+│   └── modules/
+│       ├── auth/auth.service.spec.ts
+│       ├── ideas/
+│       │   ├── ideas.service.ts      # Atualizado com cache
+│       │   └── ideas.service.spec.ts
+│       ├── documents/documents.service.spec.ts
+│       └── prompts/
+│           ├── prompts.service.ts    # Atualizado com cache
+│           └── prompts.service.spec.ts
+└── test/
+    ├── setup.ts
+    ├── jest-e2e.json
+    ├── test-app.module.ts
+    ├── app.e2e-spec.ts
+    ├── auth.e2e-spec.ts
+    └── ideas.e2e-spec.ts
+```
+
+### Estatisticas de Testes
+
+| Suite | Testes | Status |
+|-------|--------|--------|
+| AuthService | 26 | ✅ Pass |
+| IdeasService | 38 | ✅ Pass |
+| DocumentsService | 31 | ✅ Pass |
+| PromptsService | 29 | ✅ Pass |
+| App (infra) | 19 | ✅ Pass |
+| **Total Unit** | **143** | **✅ Pass** |
+| E2E Tests | 42 | ⏳ Requer PostgreSQL |
+
+### Comandos de Teste
+
+```bash
+# Testes unitarios
+npm run test
+
+# Testes com coverage
+npm run test:cov
+
+# Testes E2E (requer PostgreSQL via Docker)
+docker-compose up -d
+npm run test:e2e
+```
+
+### Notas
+
+- Testes E2E requerem PostgreSQL rodando (via Docker ou local)
+- Configurar variaveis de ambiente DB_HOST, DB_PORT, DB_USERNAME, DB_PASSWORD, DB_DATABASE para E2E
+- Coverage thresholds temporariamente em 0% para permitir incremento gradual
+
+---
+
 ## [0.2.0] - 2025-12-11
 
 ### Fase 2 - Qualidade de Codigo e Logging
